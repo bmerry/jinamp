@@ -1,5 +1,5 @@
 /*
- $Id: jinamp-ctl.c,v 1.5 2002/11/25 01:50:50 bruce Exp $
+ $Id: jinamp-ctl.c,v 1.6 2002/12/02 05:34:37 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -46,31 +46,53 @@ void show_usage() {
   fprintf(stderr, "last\t\tquit at end of current file\n");
   fprintf(stderr, "pause\t\tPause current file\n");
   fprintf(stderr, "continue\tResume current file\n");
+  fprintf(stderr, "replace\tReplace play list with command line arguments\n");
   exit(1);
 }
 
-int main(int argc, char *argv[]) {
+void send_replace(int sock, int argc, const char *argv[]) {
+  int i;
+  int count, total;
+  command_list_t rep;
+
+  rep.command = COMMAND_REPLACE;
+  total = 0;
+  for (i = 0; i < argc; i++) {
+    count = strlen(argv[i]) + 1;
+    if (count + total > sizeof(rep.argv)) break;
+    strcpy(rep.argv + total, argv[i]);
+    total += count;
+  }
+  rep.argc = i;
+  send_control_packet(sock, (command_t *) &rep, sizeof(rep) - sizeof(rep.argv) + total, 1);
+}
+
+int main(int argc, const char *argv[]) {
   int sock;
+  int sent = 0;
   command_t msg;
 
+  if (argc <= 1) show_usage();
   sock = get_control_socket(0);
   if (sock == -1) pdie("failed to open connection");
-  if (argc > 1) {
-    if (!strcmp(argv[1], "next"))
-      msg.command = COMMAND_NEXT;
-    else if (!strcmp(argv[1], "last"))
-      msg.command = COMMAND_LAST;
-    else if (!strcmp(argv[1], "pause"))
-      msg.command = COMMAND_PAUSE;
-    else if (!strcmp(argv[1], "continue"))
-      msg.command = COMMAND_CONTINUE;
-    else if (!strcmp(argv[1], "stop"))
-      msg.command = COMMAND_STOP;
-    else show_usage();
+  if (!strcmp(argv[1], "next"))
+    msg.command = COMMAND_NEXT;
+  else if (!strcmp(argv[1], "last"))
+    msg.command = COMMAND_LAST;
+  else if (!strcmp(argv[1], "pause"))
+    msg.command = COMMAND_PAUSE;
+  else if (!strcmp(argv[1], "continue"))
+    msg.command = COMMAND_CONTINUE;
+  else if (!strcmp(argv[1], "stop"))
+    msg.command = COMMAND_STOP;
+  else if (!strcmp(argv[1], "replace")) {
+    send_replace(sock, argc - 2, argv + 2);
+    sent = 1;
   }
   else show_usage();
 
-  send_control_packet(sock, &msg, sizeof(&msg), 1);
+  if (!sent)
+    send_control_packet(sock, &msg, sizeof(msg), 1);
   close_control_socket(sock, 0);
   return 0;
 }

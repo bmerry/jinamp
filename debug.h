@@ -1,5 +1,5 @@
 /*
- $Id: debug.h,v 1.5 2002/06/27 11:40:18 bruce Exp $
+ $Id: debug.h,v 1.6 2002/12/02 05:34:37 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -40,13 +40,16 @@
 #define DBG_LIST_WALKER       0x00000004      /* shows each item as it is walked */
 
 #define DBG_CONFIG_COUNT      0x00000010      /* shows how many config items found */
+#define DBG_CONFIG_INFO       0x00000020
 
 #define DBG_LOAD_SHOW         0x00000100
 #define DBG_LOAD_REGEX        0x00000200
 #define DBG_LOAD_DONE         0x00000400
 
-#define DBG_CONTROL_ERRORS    0x00000800
-#define DBG_CONTROL_DATA      0x00001000
+#define DBG_CONTROL_ERRORS    0x00001000
+#define DBG_CONTROL_DATA      0x00002000
+
+#define DBG_MISC              0x80000000
 
 #if DEBUG
 

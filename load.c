@@ -1,5 +1,5 @@
 /*
- $Id: load.c,v 1.3 2002/05/16 17:40:35 bruce Exp $
+ $Id: load.c,v 1.4 2002/12/02 05:34:38 bruce Exp $
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
 
@@ -63,7 +63,7 @@
 #include <list.h>
 #include <debug.h>
 
-void read_list(char *listname, list *names, list *done,
+void read_list(const char *listname, list *names, list *done,
                void *playlist_handle, void *exclude_handle) {
   FILE *fd;
   char *buffer;
@@ -100,7 +100,7 @@ void read_list(char *listname, list *names, list *done,
   free(buffer);
 }
 
-void read_directory(char *dirname, list *names, list *done,
+void read_directory(const char *dirname, list *names, list *done,
                     void *playlist_handle, void *exclude_handle) {
   DIR *directory;
   struct dirent *entry;
@@ -133,8 +133,8 @@ void read_directory(char *dirname, list *names, list *done,
   closedir(directory);
 }
 
-void read_object(char *file, list *names, list *done,
-                void *playlist_handle, void *exclude_handle) {
+void read_object(const char *file, list *names, list *done,
+                 void *playlist_handle, void *exclude_handle) {
   struct stat buf;
   int r;
   char *canon;

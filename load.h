@@ -1,5 +1,5 @@
 /*
- $Id: load.h,v 1.4 2002/06/26 18:54:50 bruce Exp $
+ $Id: load.h,v 1.5 2002/12/02 05:34:38 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -32,7 +32,7 @@
  * The `done' parameter is a list of things to ignore (intended for
  * directories and lists, which aren't already in names)
  */
-void read_object(char *file, list *names, list *done,
+void read_object(const char *file, list *names, list *done,
                  void *playlist_handle, void *exclude_handle);
 
 #endif /* JINAMP_LOAD_H */

@@ -1,5 +1,5 @@
 /*
- $Id: list.h,v 1.3 2002/05/16 17:40:35 bruce Exp $
+ $Id: list.h,v 1.4 2002/12/02 05:34:38 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -66,7 +66,7 @@ int list_insert(list *l, char *item);
 int list_remove(list *l, char *item);
 
 /* returns true iff item is in l */
-int list_find(list *l, char *item);
+int list_find(list *l, const char *item);
 
 /* frees the list (if ``strings'' is true then strings freed as well) */
 void list_dispose(list *l, int strings);

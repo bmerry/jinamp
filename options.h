@@ -1,5 +1,5 @@
 /*
- $Id: options.h,v 1.3 2002/05/16 17:40:35 bruce Exp $
+ $Id: options.h,v 1.4 2002/12/02 05:34:38 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -55,9 +55,9 @@ struct parameter {
 };
 
 /* processes the command line with getopt. Returns optind (see getopt(3)). */
-int options_cmdline(int argc, char *argv[], struct parameter parms[]);
+int options_cmdline(int argc, char * const argv[], struct parameter parms[]);
 
 /* processes the named file with the config file parser (returns 0 if file not found */
-int options_file(char *filename, struct parameter parms[]);
+int options_file(const char *filename, struct parameter parms[]);
 
 #endif /* JINAMP_OPTIONS_H */

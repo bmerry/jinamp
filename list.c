@@ -1,5 +1,5 @@
 /*
- $Id: list.c,v 1.5 2002/06/27 11:39:55 bruce Exp $
+ $Id: list.c,v 1.6 2002/12/02 05:34:38 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -307,7 +307,7 @@ int list_remove(list *l, char *item) {
   return r;
 }
 
-int list_find(list *l, char *item) {
+int list_find(list *l, const char *item) {
   node *cur;
   int cmp;
 

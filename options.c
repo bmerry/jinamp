@@ -1,5 +1,5 @@
 /*
- $Id: options.c,v 1.3 2002/05/16 17:40:35 bruce Exp $
+ $Id: options.c,v 1.4 2002/12/02 05:34:38 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -53,7 +53,7 @@
   (x).long_option == 0 && \
   (x).config_option == 0))
 
-int options_cmdline(int argc, char *argv[], struct parameter parms[]) {
+int options_cmdline(int argc, char * const argv[], struct parameter parms[]) {
   char *shortopts, *end;
 #if HAVE_GETOPT_LONG
   struct option *longopts;
@@ -139,7 +139,7 @@ extern FILE *yyin;
 extern int yyparse();
 
 /* returns non-zero on success, zero if file not accessable. */
-int options_file(char *filename, struct parameter parms[]) {
+int options_file(const char *filename, struct parameter parms[]) {
   config_parms = parms;
   yyin = fopen(filename, "r");
   if (yyin) {

@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.15 2002/11/29 22:33:42 bruce Exp $
+ $Id: jinamp.c,v 1.16 2002/12/02 05:34:37 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -71,6 +71,7 @@
 #include <load.h>
 #include <options.h>
 #include <control.h>
+#include <debug.h>
 
 #ifndef DEFAULT_PLAYER
 # define DEFAULT_PLAYER "/usr/local/bin/playaudio"  /* quick hacks */
@@ -130,7 +131,7 @@ void cleanup() {
  * The index of the parameter AFTER the last one swallowed is returned in *end.
  * NULL is returned if the expression is invalid.
  */
-list *read_argv(int argc, char *argv[], int first, int level, int *end,
+list *read_argv(int argc, const char * const argv[], int first, int level, int *end,
                void *playlist_handle, void *exclude_handle) {
   int i;
   list *current, *next, *done;
@@ -224,7 +225,7 @@ bailout:
 /* Take the command line options and expand to get playlist
  * `first' is the first argument to process (to work with getopt)
  */
-void populate(int argc, char *argv[], int first) {
+void populate(int argc, const char * const argv[], int first) {
   void *playlist_handle, *exclude_handle;
 
   if (playlist_regex && *playlist_regex) {
@@ -240,7 +241,6 @@ void populate(int argc, char *argv[], int first) {
   }
   else exclude_handle = NULL;
 
-  if (first == 0) first = 1;
   /* we overwrite first simply because it is no longer needed */
   songs = read_argv(argc, argv, first, 0, &first, playlist_handle, exclude_handle);
 
@@ -269,9 +269,8 @@ struct walker_data {
 /* takes the data from the list and puts it in the array */
 void shuffle_walker(char *item, void *data) {
   struct walker_data *cast_data = (struct walker_data *) data;
-#if DEBUG
-  printf("Walker: %s\n", item);
-#endif
+
+  dprintf(DBG_LIST_WALKER, "Walker: %s\n", item);
   order[cast_data->walker_map[(cast_data->walker_pos)++]] = item;
 }
 
@@ -283,9 +282,7 @@ void shuffle() {
 
   /* calculate random order */
   tot = list_count(songs);
-#if DEBUG
-  printf("Count: %d\n", tot);
-#endif
+  dprintf(DBG_MISC, "Count: %d\n", tot);
   current.walker_map = (int *) safe_malloc(sizeof(int) * tot);
   used = (int *) safe_malloc(sizeof(int) * tot);
   for (i = 0; i < tot; i++)
@@ -328,6 +325,7 @@ void playall() {
     switch (f) {
     case -1: perror("jinamp: fork"); cleanup(); exit(2); break;
     case 0:
+      dprintf(DBG_MISC, "exec'ing %s\n", player);
 #if DEBUG
       close(0);
       close(1);
@@ -375,18 +373,53 @@ void command_stop() {
   exit(0);
 }
 
+/* jinamp-ctl sends lists of strings as a flat list, one string right after the next
+ * using NULLs as separators. This function splits this back into an argv-style array,
+ * returning the number of parameters. This may be less than cmd->argc if the array is
+ * exhausted first. Return -1 on error.
+ */
+int unpack(const command_list_t *cmd, const char ***argv) {
+  int i;
+  const char *cur, *nxt;
+
+  cur = cmd->argv;
+  *argv = malloc(cmd->argc * sizeof(char *));
+  if (*argv == NULL) {
+    dprintf(DBG_CONTROL_ERRORS, "Out of memory in unpack\n");
+    return -1;
+  }
+  for (i = 0; i < cmd->argc; i++) {
+    if (cur >= cmd->argv + sizeof(cmd->argv)) break;
+    nxt = cur;
+    while (nxt < cmd->argv + sizeof(cmd->argv) && *nxt != '\0')
+      nxt++;
+    if (nxt >= cmd->argv + sizeof(cmd->argv)) break;
+    (*argv)[i] = cur;
+    dprintf(DBG_CONTROL_DATA, "unpack %d: %s\n", i, cur);
+    cur = nxt;
+  }
+  return i;
+}
+
 void dispatch_command(const command_t *cur) {
-#ifdef DEBUG
-  printf("Got command %d\n", cur->command);
-#endif
+  int argc;
+  const char **argv;
+
+  dprintf(DBG_CONTROL_DATA, "Got command %d\n", cur->command);
   switch (cur->command) {
-  case COMMAND_WAKE: /* used internally by SIGCHLD handler */ break;
+  case COMMAND_WAKE: break; /* used internally by SIGCHLD handler to wake us up */
   case COMMAND_LAST: command_last(); break;
   case COMMAND_NEXT: command_next(); break;
   case COMMAND_PAUSE: command_pause(); break;
   case COMMAND_CONTINUE: command_continue(); break;
   case COMMAND_STOP: command_stop(); break;
-  default: /* just ignore any invalid command packets */
+  case COMMAND_REPLACE:
+    argc = unpack((const command_list_t *) cur, &argv);
+    if (argc != -1) {
+      populate(argc, argv, 0);
+      shuffle();
+    }
+    break;
   }
 }
 
@@ -396,7 +429,7 @@ void process_commands() {
   int broken;
 
   while (1) {
-    cur = (command_t *) malloc(sizeof(command_t)); /* FIXME: handle bigger sizes */
+    cur = (command_t *) malloc(sizeof(command_list_t)); /* FIXME: handle arbitrary sizes */
     if (control_sock == -1) {
       count = -1;
       sigsuspend(&unblocked);
@@ -404,7 +437,7 @@ void process_commands() {
     else {
       broken = 0;
       sigprocmask(SIG_SETMASK, &unblocked, NULL);
-      count = receive_control_packet(control_sock, cur, sizeof(command_t), 1); /* FIXME: bigger sizes */
+      count = receive_control_packet(control_sock, cur, sizeof(command_list_t), 1); /* FIXME: arb sizes */
       if (count == -1 && errno != EINTR) broken = 1;
       sigprocmask(SIG_SETMASK, &blocked, NULL);
       if (broken) {
@@ -551,9 +584,7 @@ void delay_callback(const char *argument, void *data) {
     printf("Delay cannot be negative, using default delay of %d\n", DEFAULT_DELAY);
     delay = DEFAULT_DELAY;
   }
-#if DEBUG
-  printf("Using delay: %d\n", delay);
-#endif
+  dprintf(DBG_CONFIG_INFO, "Using delay: %d\n", delay);
 }
 
 void count_callback(const char *argument, void *data) {
@@ -576,9 +607,7 @@ void count_callback(const char *argument, void *data) {
     printf("Count cannot be negative, using infinite repeat\n");
     count = 0;
   }
-#if DEBUG
-  printf("Using count: %d\n", count);
-#endif
+  dprintf(DBG_CONFIG_INFO, "Using count: %d\n", count);
 }
 
 void repeat_callback(const char *argument, void *data) {
@@ -601,12 +630,10 @@ void repeat_callback(const char *argument, void *data) {
     printf("Repeat cannot be negative, using infinite repeat\n");
     repeat = 0;
   }
-#if DEBUG
-  printf("Using repeat: %d\n", repeat);
-#endif
+  dprintf(DBG_CONFIG_INFO, "Using repeat: %d\n", repeat);
 }
 
-int options(int argc, char *argv[]) {
+int options(int argc, char * const argv[]) {
   struct parameter opts[] = {
   {'p', "player", "player", required_argument, string_callback, &player},
   {'d', "delay", "delay", required_argument, delay_callback, NULL},
@@ -639,7 +666,7 @@ int options(int argc, char *argv[]) {
   return options_cmdline(argc, argv, opts);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char * const argv[]) {
   int first;
 #ifndef DEBUG
   int dev_null;
@@ -659,7 +686,9 @@ int main(int argc, char *argv[]) {
     show_help(NULL, NULL);
 
   /* load the songs from the command line */
-  populate(argc, argv, first);
+  if (first == 0) first = 1;
+  /* not too sure why the compiler wants the typecast here: it's just an extra const */
+  populate(argc, (const char * const *) argv, first);
 
   /* background ourselves */
 #ifndef DEBUG

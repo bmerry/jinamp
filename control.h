@@ -1,5 +1,5 @@
 /*
- $Id: control.h,v 1.4 2002/11/25 01:50:50 bruce Exp $
+ $Id: control.h,v 1.5 2002/12/02 05:34:37 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -34,6 +34,8 @@
 #endif
 
 #if USING_JINAMP_CTL
+#include <sys/ipc.h>
+#include <sys/msg.h>
 #include <sys/types.h>
 
 typedef enum {
@@ -42,7 +44,8 @@ typedef enum {
   COMMAND_LAST,
   COMMAND_PAUSE,
   COMMAND_CONTINUE,
-  COMMAND_STOP
+  COMMAND_STOP,
+  COMMAND_REPLACE
 } command_type_t;
 
 /* any payload appears in an extended form of the data structure, in the same
@@ -51,6 +54,12 @@ typedef enum {
 typedef struct {
   command_type_t command;
 } command_t;
+
+typedef struct {
+  command_type_t command;
+  int argc;
+  char argv[4000]; /* leaves lots of room in case padding happens */
+} command_list_t;
 
 /* returns the socket ID on success, -1 on failure. */
 int get_control_socket(int server);
