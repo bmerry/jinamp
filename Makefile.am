@@ -1,9 +1,10 @@
-bin_PROGRAMS = jinamp
+bin_PROGRAMS = jinamp jinamp-ctl
 bin_SCRIPTS = playaudio
 dist_bin_SCRIPTS = playaudio
 jinamp_SOURCES = jinamp.c list.c load.c misc.c options.c debug.c control.c \
                  parse.y conffile.l list.h load.h misc.h \
                  options.h parse.h debug.h control.h
+jinamp_ctl_SOURCES = jinamp-ctl.c control.c control.h
 man1_MANS = jinamp.1.gz
 EXTRA_DIST = jinamp.1
 
@@ -17,7 +18,7 @@ AM_YFLAGS = -d
 conffile.o options.o: parse.h
 
 if DEBUG
-extra_cflags = -DDEBUG=1
+extra_cflags = -DDEBUG=1 -g -Wall
 else
 extra_cflags =
 endif
