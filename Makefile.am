@@ -1,9 +1,9 @@
 bin_PROGRAMS = jinamp
 bin_SCRIPTS = playaudio
 dist_bin_SCRIPTS = playaudio
-jinamp_SOURCES = jinamp.c list.c load.c misc.c options.c debug.c \
+jinamp_SOURCES = jinamp.c list.c load.c misc.c options.c debug.c control.c \
                  parse.y conffile.l list.h load.h misc.h \
-                 options.h parse.h debug.h
+                 options.h parse.h debug.h control.h
 man1_MANS = jinamp.1.gz
 EXTRA_DIST = jinamp.1
 
