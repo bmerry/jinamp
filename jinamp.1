@@ -2,7 +2,7 @@
 .SH NAME
 jinamp \- A multimedia meta-player
 .SH SYNOPSIS
-.B jinamp [-dphxLV]
+.B jinamp [-dpcrhxLV]
 .BI "set1 " "[!] " "set2 " "[!] " "set3 ..."
 .SH DESCRIPTION
 .B jinamp
@@ -22,15 +22,18 @@ will handle loops gracefully. It also follows symlinks so that a file
 won't be duplicated if there is a symlink to it.
 
 One can also build complex expressions using the operators
-.B "!"
+.B "-"
 and
 .BR "^" .
 The first is a set subtraction operator and the second a set
 intersection operator. The set intersection operator has a higher
 precedence than concatenation and subtraction, which have the same
 precedence. Finally, brackets can be used to override precedence. Note
-that the set subtraction and brackets may need to be protected from the
-shell.
+that the brackets may need to be protected from the shell. For
+compatibility with older versions of jinamp,
+.B "!"
+can also be used for set subtraction, although this support may be
+removed at some stage.
 
 After all the parameters have been merged into one big set,
 .B jinamp
@@ -53,8 +56,19 @@ pathname to the player.
 .TP
 .BR -c , " --count"
 If this is set to a positive integer, then jinamp will quit after
-playing the specified number of files. If it is set to 0 or left
-unspecified then jinamp will loop indefinitely.
+playing the specified number of files. If it is set to 0 (the default)
+then jinamp will loop indefinitely.
+.TP
+.BR -r , " --repeat"
+This is similar to the previous item, except that it is a count of
+complete loops through the playlist instead of individual songs. If
+both
+.B count
+and
+.B repeat
+are non-zero, the effect is cumulative. For example, if there are 100
+songs given on the command line, repeat is 2 and count is 31 then
+jinamp will exit after 231 songs have been played.
 .TP
 .BR -x , " --exclude"
 The argument is an extended regular expression (see

@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.2 2002/01/05 22:53:14 bruce Exp $
+ $Id: jinamp.c,v 1.3 2002/01/06 20:58:45 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001  Bruce Merry.
@@ -100,7 +100,7 @@ char *player;
 char *playlist_regex;
 char *exclude_regex;
 int delay = DEFAULT_DELAY;
-int count = 0;
+int count = 0, repeat = 0;
 int kill_signal = DEFAULT_KILL_SIGNAL;
 int pause_signal = DEFAULT_PAUSE_SIGNAL;
 
@@ -304,6 +304,7 @@ void playall() {
   char *cur;
   pid_t f;
 
+  int counter = tot * repeat + count;
   for (i = 0;; i = (i + 1) % tot) {
     cur = order[i];
     f = fork();
@@ -325,9 +326,9 @@ void playall() {
       playerpid = 0;
       sleep(delay);
     }
-    if (count > 0) {
-      count--;
-      if (count == 0) break;
+    if (counter > 0) {
+      counter--;
+      if (counter == 0) break;
     }
   }
 }
@@ -369,6 +370,7 @@ void show_help(const char *argument, void *data) {
   printf("\t-p, --player\tOverride the default player [" DEFAULT_PLAYER "]\n");
   printf("\t-d, --delay\tOverride the default inter-song delay [%d]\n", DEFAULT_DELAY);
   printf("\t-c, --count\tNumber of songs to play (0 for infinite loop)\n");
+  printf("\t-r, --repeat\tNumber of times to repeat entire command line (0 for infinite)\n");
   printf("\t-x, --exclude\tSpecify files to ignore (extended regex)\n");
   printf("\t-L, --playlist\tSpecify extended regex for playlists\n");
   printf("\t-h, --help\tPrint this help text and exit\n");
@@ -438,11 +440,36 @@ void count_callback(const char *argument, void *data) {
   }
 #endif
   if (count < 0) {
-    printf("Delay cannot be negative, using infinite repeat\n");
+    printf("Count cannot be negative, using infinite repeat\n");
     count = 0;
   }
 #if DEBUG
   printf("Using count: %d\n", count);
+#endif
+}
+
+void repeat_callback(const char *argument, void *data) {
+  char *check;
+
+#if !HAVE_STRTOL
+  repeat = atoi(argument);
+#else
+  repeat = (int) strtol(argument, &check, 10);
+  if (*check) {
+    printf("Repeat is not a valid integer, using infinite repeat\n");
+    repeat = 0;
+  }
+  if (delay == LONG_MAX && errno == ERANGE) {
+    printf("Repeat overflowed, using infinite repeat\n");
+    repeat = 0;
+  }
+#endif
+  if (repeat < 0) {
+    printf("Repeat cannot be negative, using infinite repeat\n");
+    repeat = 0;
+  }
+#if DEBUG
+  printf("Using repeat: %d\n", repeat);
 #endif
 }
 
@@ -452,6 +479,7 @@ int options(int argc, char *argv[]) {
   {'d', "delay", "delay", required_argument, delay_callback, NULL},
   {'h', "help", NULL, no_argument, show_help, NULL},
   {'c', "count", "count", required_argument, count_callback, NULL},
+  {'r', "repeat", "repeat", required_argument, repeat_callback, NULL},
   {'x', "exclude", "exclude", required_argument, string_callback, &exclude_regex},
   {'L', "playlist", "playlist", required_argument, string_callback, &playlist_regex},
   {'V', "version", NULL, no_argument, show_version, NULL},

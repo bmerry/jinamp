@@ -1,8 +1,8 @@
 jinamp 0.3.0.3
 --------------
-* imported into CVS
+* imported into a CVS repository
 * removed a few arb files that were lying around being useless
-* added a --count option
+* added --count and --repeat options
 * updated manual for above
 
 jinamp 0.3.0.2
