@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.8 2002/06/27 12:19:28 bruce Exp $
+ $Id: jinamp.c,v 1.9 2002/11/16 21:54:58 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -70,6 +70,7 @@
 #include <list.h>
 #include <load.h>
 #include <options.h>
+#include <control.h>
 
 #ifndef DEFAULT_PLAYER
 # define DEFAULT_PLAYER "/usr/local/bin/playaudio"  /* quick hacks */
@@ -94,6 +95,7 @@
 list *songs;
 char **order;
 int tot;
+int control_sock;
 
 /* config data */
 char *player;
@@ -298,6 +300,8 @@ void shuffle() {
   list_free(songs, 0);
 }
 
+void process_commands(int socket);
+
 /* this has to be global for the signal handlers to get at it */
 pid_t playerpid = 0;
 
@@ -325,7 +329,9 @@ void playall() {
       break;
     default:
       playerpid = f;
+      /* FIXME: handle asynchonously */
       while (waitpid(f, NULL, 0) == -1);
+      if (control_sock != -1) process_commands(control_sock);
       playerpid = 0;
       sleep(delay);
     }
@@ -333,6 +339,19 @@ void playall() {
       counter--;
       if (counter == 0) break;
     }
+  }
+}
+
+void process_commands(int socket) {
+  command_t *cur;
+  while ((cur = receive_control_packet(socket)) != NULL) {
+    switch (cur->command) {
+    case COMMAND_LAST: exit(0); break;
+    case COMMAND_NEXT: kill(playerpid, kill_signal); break;
+    case COMMAND_PAUSE: kill(playerpid, pause_signal); break;
+    default: /* just ignore any invalid command packets */
+    }
+    free(cur);
   }
 }
 
@@ -354,6 +373,14 @@ RETSIGTYPE terminate(int sig) {
   if (playerpid)
     kill(playerpid, kill_signal);
   signal(sig, SIG_DFL);
+  cleanup();
+  raise(sig);
+}
+
+/* similar to terminate but leaves the player going */
+RETSIGTYPE fastquit(int sig) {
+  signal(sig, SIG_DFL);
+  cleanup();
   raise(sig);
 }
 
@@ -362,6 +389,8 @@ void setsigs() {
   signal(SIGTSTP, signalplayer);
   signal(SIGCONT, signalplayer);
   signal(SIGTERM, terminate);
+  signal(SIGINT, fastquit);
+  signal(SIGHUP, fastquit);
 }
 
 /* Shows the help. The parameters are just to make it work as a callback */
@@ -567,6 +596,8 @@ int main(int argc, char *argv[]) {
 
   /* the fun stuff */
   shuffle();
+  control_sock = get_control_socket(1);
   playall();
+  if (control_sock != -1) close_control_socket(control_sock);
   return 0;
 }

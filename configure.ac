@@ -15,7 +15,7 @@ dnl Checks for header files
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 AC_HEADER_DIRENT
-AC_CHECK_HEADERS([sys/resource.h limits.h regex.h])
+AC_CHECK_HEADERS([sys/resource.h limits.h regex.h sys/un.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_PID_T
@@ -47,6 +47,8 @@ case "${enableval}" in
   *) AC_MSG_ERROR([bad value ${enableval} for --enable-suid]) ;;
 esac], [use_suid=false])
 AM_CONDITIONAL(USE_SUID, test x$use_suid = xtrue)
+
+AM_CONDITIONAL(USE_JINAMP_CTL, test x$ac_cv_have_sys_un_h = xyes)
 
 dnl --with options
 DEFAULT_PLAYER='${bindir}/playaudio'
