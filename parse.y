@@ -1,6 +1,6 @@
 %{
 /*
- $Id: parse.y,v 1.2 2002/01/05 22:53:14 bruce Exp $
+ $Id: parse.y,v 1.3 2002/02/26 11:39:14 bruce Exp $
  
  jinamp: a command line music shuffler
  Copyright (C) 2001  Bruce Merry.
@@ -30,6 +30,8 @@
 
 #include <misc.h>
 #include <options.h>
+#include <stdio.h>
+#include <string.h>
 
 #define YYSTYPE char *
 
