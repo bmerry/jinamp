@@ -1,0 +1,78 @@
+jinamp 0.3.0.2
+--------------
+* Fixed up the ChangeLog - should be the same as 0.3.0.1 otherwise
+
+jinamp 0.3.0.1
+--------------
+* Fixed silly bug that prevented concatenation from working
+
+jinamp 0.3
+----------
+* Switched entire list code to AVL trees
+* Implemented debug.c with dprintf function
+* Added a list intersection function
+* Rewrote the command line parameter handling with intersection and
+  precedence handling
+
+jinamp 0.2.2.2
+--------------
+* Arrange for an empty regex to match nothing instead of anything
+* Optimise regexs so that empty regex never actually calls regexec
+* Fix man page: the regex tests are for partial match not full match
+
+jinamp 0.2.2.1
+--------------
+* Eliminate a few global variables from jinamp.c
+* Added configure.ac stuff for regex detection
+* Added interface to regex(3) in misc.c
+* Added command line options --exclude and --playlist, and updated
+  the man page accordingly
+* Added info about quoting in the config file
+* Removed some tests whose results were never really used since POSIX is
+  assumed
+* Redirect to /dev/null rather than just closing stdin/stdout/stderr
+* Use -q instead of &>/dev/null on mpg123/ogg123
+* Fixed a memory leak in reading in
+* Fixed player getting SIGTERM instead of kill_signal on exit
+* Arrange for an empty regex to match nothing
+
+jinamp 0.2.2
+------------
+* Moved die, pdie and safe_malloc into a separate file misc.c
+* Added `duplicate' to misc.c for duplicating strings
+* changed METAPLAY to JINAMP in header file defines (metaplay was the
+  old name for jinamp, but it was already used by somebody else)
+* Converted some #ifdef's to #if's
+* Created an interface for option extraction from cmdline and file
+* fixed bug in list.c: return without a value in list_insert
+* Fixed various warnings from -Wall (now compiles with gcc 3)
+* Typo: changed `licence' to `license' in source file
+* Replaced the README usage instructions with a reference to the
+  manpage
+* Implemented config file support! (using code from radiod)
+* Further fixes to playaudio script for funny filenames
+
+jinamp 0.2.1.2
+--------------
+* Updated the TODO file
+* Various fixes to make it work (without full functionality) on some
+  non-GNU systems
+
+jinamp 0.2.1.1
+--------------
+* Fixed playaudio script to handle funny characters in filenames
+
+jinamp 0.2.1
+------------
+* wrote a man page
+* added support for command line options -d, -h, -V and -p
+* added --enable-suid and --enable-debug configure options
+* added --with-player=... configure option
+* fixed Makefile.am to include the playaudio script
+* closed stdin and stdout to make sure that nothing waits on jinamp
+  (e.g. ssh)
+
+jinamp 0.2
+----------
+
+* Initial public release

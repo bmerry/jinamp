@@ -1,0 +1,46 @@
+2001-12-09 jinamp 0.3
+
+This is a total rewrite of the list management code, to use AVL trees.
+On my system this takes 30% off the startup time, and the more files
+you have the bigger the speedup you should see. Version 0.2 was
+particularly slow when filenames came sorted, which in practice is often
+the case (e.g. the bash sorts wildcard expansions).
+
+The command line parameter parsing has also been rewritten, to support
+intersection and precedence. It is currently slower than jinamp 0.2.2.2
+when processing the same command line (although this is probably more
+than compensated for by the AVL trees) but this should be improved in
+later versions.
+
+2001-11-16 jinamp 0.2.2.1
+
+I've now made the detection of playlists and exclude sets configurable
+via a regex. Also fixed one or two minor bugs (see ChangeLog).
+
+2001-11-10 jinamp 0.2.2
+
+Lots more changes! The big news is that you can now create a config
+file ~/.jinamp that can set the player (can be overridden on the
+command line). The rest is mainly internal shuffling to make the config
+file code work.
+
+2001-11-08 jinamp 0.2.1
+
+There have been lots of changes - don't let the small version increment
+fool you. For the moment I'm keeping the version numbers small by
+bumping the 3rd component for smallish changes and the second one when
+I reach some sort of milestone.
+
+Probably the biggest change is that you can now override the player
+with --player=<player>. That means that pre-compiled binaries are
+now actually useful, using a script or alias that passes this parameter
+every time.
+
+You can also configure with --enable-suid, in which case `make install'
+will install jinamp SUID so that it can get a higher priority.
+
+The other big change is that there is now a man page!
+
+2001-11-01 jinamp 0.2
+
+jinamp 0.2 is unleased on an unsuspecting public.

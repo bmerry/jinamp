@@ -1,0 +1,137 @@
+.TH JINAMP 1 "November 2001" JINAMP "User Manual"
+.SH NAME
+jinamp \- A multimedia meta-player
+.SH SYNOPSIS
+.B jinamp [-dphxLV]
+.BI "set1 " "[!] " "set2 " "[!] " "set3 ..."
+.SH DESCRIPTION
+.B jinamp
+is a command-line based meta-player, meaning that it invokes another
+program to do the actual playing and only worries itself with the
+sequencing. It was originally designed for MPEG Layer 3 (MP3) but can
+be used for pretty much anything that has a command line player (such
+as Ogg Vorbis).
+
+The command line parameters may be individual files, directories or
+playlists (files with a list of files one per
+line). Directories are traversed recursively, and the list of files
+in playlists are read. Everything is expanded recursively, so for
+example you can list directories in playlists.
+.B jinamp
+will handle loops gracefully. It also follows symlinks so that a file
+won't be duplicated if there is a symlink to it.
+
+One can also build complex expressions using the operators
+.B "!"
+and
+.BR "^" .
+The first is a set subtraction operator and the second a set
+intersection operator. The set intersection operator has a higher
+precedence than concatenation and subtraction, which have the same
+precedence. Finally, brackets can be used to override precedence. Note
+that the set subtraction and brackets may need to be protected from the
+shell.
+
+After all the parameters have been merged into one big set,
+.B jinamp
+shuffles it, goes into the background and starts playing in a
+continuous loop.
+.SH OPTIONS
+.TP 
+.BR -d , " --delay"
+Specifies a delay in seconds to leave between songs. Some players such
+as
+.BR splay (1)
+fork and the parent exits a few seconds before the children, in which
+case this value may need to be increased. If you notice that songs are
+sometimes failing to play and being skipped over, try using this
+parameter.
+.TP 
+.BR -p , " --player"
+Use this to use a different player. You need to specify the full
+pathname to the player.
+.TP
+.BR -x , " --exclude"
+The argument is an extended regular expression (see
+.BR regex (7))
+that specifies files or directories to be ignored. The expression is
+matched against the full canonicalised pathname, but only a substring
+match is required. For example,
+.I "\e.txt$"
+could be used to exclude
+.I .txt
+files.
+.TP
+.BR -L , " --playlist"
+The parameter is an extended regular expression that specifies files that
+are to be considered as playlists instead of actual playable files. The
+default is
+.IR ".*\e.lst" .
+.TP 
+.BR -V , " --version"
+Displays the version of
+.BR jinamp .
+.TP 
+.BR -h , " --help"
+Displays basic help.
+.SH SIGNALS
+.TP
+.B SIGTERM
+Causes
+.B jinamp
+to kill any running player and exit.
+.TP
+.B SIGTSTP
+Pauses the player.
+.TP
+.B SIGCONT
+Causes the player to continue.
+.TP
+.B SIGUSR1
+Kills the current player and starts the next file.
+.TP
+.B SIGHUP
+Causes
+.B jinamp
+to exit but lets the current file finish.
+.SH EXIT STATUS
+.B jinamp
+returns 1 for general errors, 2 for a failed
+.BR fork (2)
+call and 3 for invalid command line options.
+.SH CONFIGURATION
+Apart from the command line options, the player and delay can also be
+configured from a per-user configuration file
+.I .jinamp
+in your home directory. The file consists of lines of the form
+.B key = value
+where
+.B key
+may be
+.BR player ", " delay ", " playlist
+or
+.BR exclude,
+corresponding to the similarly named command line options.
+Blank lines are ignored. A
+.B #
+begins a comment. Double quotes can be used to protect whitespace and
+unusual characters, and a backslash acts as an escape character.
+.SH FILES
+.TP
+.I $HOME/.jinamp
+the configuration file
+.SH BUGS
+There is currently no way to set the signals sent to the player other
+than modifying the source code.
+
+The exit codes are rather arbitrary.
+
+There should be a way to change the playlist once started, other than
+killing and restarting jinamp.
+.SH AUTHOR
+.B jinamp
+is written and maintained by Bruce Merry <bmerry@sourceforge.net>.
+.SH "SEE ALSO"
+.BR ogg123 (1),
+.BR mpg123 (1),
+.BR regex (7)

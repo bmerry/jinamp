@@ -1,0 +1,16 @@
+autoscan: warning: missing AC_CHECK_FUNCS([dup2]) wanted by: 
+	jinamp.c:352
+	jinamp.c:353
+	jinamp.c:354
+autoscan: warning: missing AC_CHECK_FUNCS([memset]) wanted by: 
+	conffile.l:67
+	conffile.c:426
+	conffile.c:437
+autoscan: warning: missing AC_CHECK_HEADERS([alloca.h]) wanted by: 
+	parse.c:201
+autoscan: warning: missing AC_CHECK_HEADERS([errno.h]) wanted by: 
+	jinamp.c:52
+autoscan: warning: missing AC_CHECK_HEADERS([fcntl.h]) wanted by: 
+	jinamp.c:56
+autoscan: warning: missing AC_CHECK_HEADERS([malloc.h]) wanted by: 
+	parse.c:209
