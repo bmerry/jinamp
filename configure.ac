@@ -6,6 +6,7 @@ AM_CONFIG_HEADER(config.h)
 dnl Checks for programs
 AC_PROG_CC
 AC_PROG_INSTALL
+AC_PROG_AWK
 AM_PROG_LEX
 AC_PROG_YACC
 
@@ -20,6 +21,8 @@ fi
 AC_HEADER_SYS_WAIT
 AC_HEADER_DIRENT
 AC_CHECK_HEADERS([sys/resource.h limits.h regex.h sys/ipc.h])
+AC_CHECK_HEADERS([fcntl.h], [], [AC_MSG_ERROR([[Missing fcntl.h]])])
+AC_CHECK_HEADERS([stddef.h], [], [AC_MSG_ERROR([[Missing stddef.h]])])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_PID_T
@@ -38,7 +41,7 @@ AC_FUNC_REALLOC
 AC_TYPE_SIGNAL
 AC_FUNC_STAT
 AC_REPLACE_FUNCS([memset])
-AC_CHECK_FUNCS([setpriority pathconf strtol realpath getopt_long regcomp])
+AC_CHECK_FUNCS([setpriority pathconf strtol realpath getopt_long regcomp atexit dup2])
 dnl --enable options
 debug=false
 AC_ARG_ENABLE(debug, [  --enable-debug          enable debugging code (quite verbose) [[no]]], [

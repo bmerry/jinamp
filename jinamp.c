@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.13 2002/11/25 01:50:50 bruce Exp $
+ $Id: jinamp.c,v 1.14 2002/11/29 22:30:13 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -249,11 +249,13 @@ void populate(int argc, char *argv[], int first) {
 
   if (!songs) {
     fprintf(stderr, "The expression was invalid (see the man page)\n");
+    cleanup();
     exit(1);
   }
 
   if (list_count(songs) == 0) {
     fprintf(stderr, "No songs to play!\n");
+    cleanup();
     exit(1);
   }
 }
@@ -327,7 +329,7 @@ void playall() {
     cur = order[i];
     f = fork();
     switch (f) {
-    case -1: perror("jinamp: fork"); exit(2); break;
+    case -1: perror("jinamp: fork"); cleanup(); exit(2); break;
     case 0:
 #if DEBUG
       close(0);
@@ -336,6 +338,7 @@ void playall() {
       setsid();
 #endif
       execl(player, player, cur, NULL);
+      cleanup();
       exit(2);
       break;
     default:
@@ -371,6 +374,7 @@ void command_continue() {
 
 void command_stop() {
   command_next();
+  cleanup();
   exit(0);
 }
 
@@ -667,14 +671,18 @@ int main(int argc, char *argv[]) {
   /* background ourselves */
 #ifndef DEBUG
   switch (fork()) {
-  case -1: perror("jinamp: fork"); exit(2);
+  case -1: perror("jinamp: fork"); cleanup(); exit(2);
   case 0:
+#if HAVE_DUP2
     dev_null = open("/dev/null", O_RDWR);
     if (dev_null != -1) {
       dup2(dev_null, 0);
       dup2(dev_null, 1);
       dup2(dev_null, 2);
     }
+#else
+    if (0) {}
+#endif
     else {
       close(0);
       close(1);
@@ -692,7 +700,9 @@ int main(int argc, char *argv[]) {
   /* the fun stuff */
   shuffle();
   control_sock = get_control_socket(1);
+#if HAVE_ATEXIT
   atexit(cleanup);
+#endif
   playall();
   return 0;
 }
