@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.6 2002/05/16 17:40:35 bruce Exp $
+ $Id: jinamp.c,v 1.7 2002/06/27 11:39:30 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -521,7 +521,6 @@ int options(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
   int first;
-  int dev_null;
 
   /* if SUID is set, gain higher priority and drop root */
   if (geteuid() == 0) {
