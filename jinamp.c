@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.4 2002/01/07 02:24:47 bruce Exp $
+ $Id: jinamp.c,v 1.5 2002/01/07 04:27:39 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001  Bruce Merry.
@@ -277,7 +277,10 @@ void shuffle() {
     used[i] = 0;
   srand((unsigned int) time(NULL));
   for (i = 0; i < tot; i++) {
-    c = rand() % (tot - i) + 1;
+    if (do_shuffle)
+      c = rand() % (tot - i) + 1;
+    else
+      c = 1;
     for (j = 0; c; j++)
       if (!used[j]) c--;
     current.walker_map[i] = --j;
@@ -561,8 +564,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* the fun stuff */
-  if (do_shuffle)
-    shuffle();
+  shuffle();
   playall();
   return 0;
 }
