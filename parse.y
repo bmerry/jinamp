@@ -1,6 +1,6 @@
 %{
 /*
- $Id: parse.y,v 1.4 2002/05/16 17:40:35 bruce Exp $
+ $Id: parse.y,v 1.5 2002/11/18 14:06:55 bruce Exp $
  
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -50,10 +50,12 @@ void config_callback(const char *name, const char *argument);
 
 input:	/* empty */
 	| input line
+;
 
 line:	'\n'
 	| WORD EQUALS WORD '\n' { config_callback($1, $3); }
         | WORD '\n' { config_callback($1, NULL); }
+;
 
 %%
 
