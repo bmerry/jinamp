@@ -3,7 +3,7 @@ Jinamp Is Not An MP3 Player
 
 Q: What is Jinamp?
 
-Jinamp is what I use to play my music. I found that MP3 players seemed
+A: Jinamp is what I use to play my music. I found that MP3 players seemed
 to come in two types: players that focused on getting the playing done
 and had very limited shuffling and selection ability (like mpg123), and
 highly interactive players (like xmms). I wanted a player which would
@@ -13,23 +13,23 @@ Jinamp is the result.
 
 Q: So why is Jinamp not an MP3 Player?
 
-It doesn't contain any decoding code. Instead it invokes an external
+A: It doesn't contain any decoding code. Instead it invokes an external
 player such as mpg123 to do all the hard work. In fact there is no
 reason why it can't be used to play other formats such as Ogg Vorbis or
 even non-audio data.
 
 Q: Does Jinamp have anything to do with Winamp, Freeamp, etc?
 
-No. I was actually rather surprised when I saw how the acronym was
+A: No. I was actually rather surprised when I saw how the acronym was
 going to end up.
 
 Q: Where can I get Jinamp?
 
-http://www.sourceforge.net/projects/jinamp
+A: http://www.sourceforge.net/projects/jinamp
 
 Q: How do I install it?
 
-Read the file INSTALL for generic instructions. By default a script
+A: Read the file INSTALL for generic instructions. By default a script
 called playaudio is installed with jinamp, and is used as the default
 player. It detects mp3 and ogg from the extension and calls mpg123 or
 ogg123. It also extracts the ID3 tag or Ogg comment and displays the
@@ -48,17 +48,17 @@ or in the configuration file.
 
 Q: How do I use it?
 
-Type `man jinamp' once you've installed it for usage instructions. If I
+A: Type `man jinamp' once you've installed it for usage instructions. If I
 duplicate them here it'll become a headache to keep them in sync.
 
 Q: Are there any bugs?
 
-Probably. If you find any, let me know at bmerry@sourceforge.net. See
+A: Probably. If you find any, let me know at bmerry@sourceforge.net. See
 the man page for any known bugs.
 
 Q: How can I contribute?
 
-Probably the best way to contribute is simply to tell me whether it's
+A: Probably the best way to contribute is simply to tell me whether it's
 useful to you, what bits you like, what annoyed you, what features
 you'd like in later versions etc.
 
@@ -70,10 +70,12 @@ I'm a terrible manual writer so if you'd like to write an info page,
 update the man page or even just a better README than this one I'd
 appreciate it.
 
-I'll eventually (i.e. once it's a bit easier to use and doesn't require
-recompiling for each system) package it for Debian. If somebody wants
-to create packages for other systems (like RPM) then let me know and
-I'll release them on the site (I have zero RPM experience myself).
+Q: Are there binaries available?
+
+A: You can download Debian binaries from the same place you got the source.
+If you are interested in creating binary packages for other operating
+systems (e.g. Red Hat or the ports collection) I'll be very happy to
+put them on the website.
 
 -----------
 Legal stuff
