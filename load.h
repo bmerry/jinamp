@@ -1,5 +1,5 @@
 /*
- $Id: load.h,v 1.3 2002/05/16 17:40:35 bruce Exp $
+ $Id: load.h,v 1.4 2002/06/26 18:54:50 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -23,8 +23,8 @@
  decide whether to relicense the software under it.
  */
 
-#ifndef METAPLAY_LOAD_H
-#define METAPLAY_LOAD_H
+#ifndef JINAMP_LOAD_H
+#define JINAMP_LOAD_H
 
 #include <list.h>
 
@@ -35,4 +35,4 @@
 void read_object(char *file, list *names, list *done,
                  void *playlist_handle, void *exclude_handle);
 
-#endif /* METAPLAY_LOAD_H */
+#endif /* JINAMP_LOAD_H */
