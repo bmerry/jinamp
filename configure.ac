@@ -39,7 +39,6 @@ AC_FUNC_VPRINTF
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_TYPE_SIGNAL
-AC_FUNC_STAT
 AC_REPLACE_FUNCS([memset])
 AC_CHECK_FUNCS([setpriority pathconf strtol realpath getopt_long regcomp atexit dup2])
 dnl --enable options

@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.17 2002/12/15 01:00:08 bruce Exp $
+ $Id: jinamp.c,v 1.18 2002/12/15 07:43:40 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -90,6 +90,10 @@
 #endif
 #ifndef PLAYLIST_REGEX
 # define PLAYLIST_REGEX ".*\\.lst"
+#endif
+
+#ifndef SA_ONESHOT
+# define SA_ONESHOT SA_RESETHAND /* FreeBSD 4.7 (at least) doesn't define SA_ONESHOT */
 #endif
 
 /* dynamic data */

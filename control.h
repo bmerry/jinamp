@@ -1,5 +1,5 @@
 /*
- $Id: control.h,v 1.6 2002/12/15 01:00:08 bruce Exp $
+ $Id: control.h,v 1.7 2002/12/15 07:43:40 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -34,9 +34,9 @@
 #endif
 
 #if USING_JINAMP_CTL
+#include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
-#include <sys/types.h>
 
 typedef enum {
   COMMAND_WAKE,
