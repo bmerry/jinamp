@@ -7,7 +7,7 @@ jinamp_SOURCES = jinamp.c list.c load.c misc.c options.c debug.c control.c \
 jinamp_LDADD = @LIBOBJS@
 jinamp_ctl_SOURCES = jinamp-ctl.c control.c control.h misc.c misc.h
 man1_MANS = jinamp.1.gz jinamp-ctl.1.gz
-EXTRA_DIST = jinamp.1 jinamp-ctl.1
+EXTRA_DIST = jinamp.1 jinamp-ctl.1 debian/rules debian/control debian/copyright debian/changelog debian/docs debian/dirs
 
 CLEANFILES = jinamp.1.gz jinamp-ctl.1.gz
 MAINTAINERCLEANFILES = parse.c parse.h conffile.c
