@@ -1,5 +1,5 @@
 /*
- $Id: misc.c,v 1.4 2002/05/16 17:40:35 bruce Exp $
+ $Id: misc.c,v 1.5 2002/11/25 01:50:50 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -51,7 +51,11 @@
 void die(const char *msg, ...) {
   va_list ap;
   va_start(ap, msg);
+#if HAVE_VPRINTF
   vfprintf(stderr, msg, ap);
+#else
+  fprintf(stderr, "%s", msg);
+#endif
   va_end(ap);
   fprintf(stderr, "\n");
   exit(1);

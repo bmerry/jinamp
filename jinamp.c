@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.12 2002/11/18 14:46:22 bruce Exp $
+ $Id: jinamp.c,v 1.13 2002/11/25 01:50:50 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -65,9 +65,6 @@
 #if HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
 #endif
-#if HAVE_SYS_SELECT_H
-# include <sys/select.h>
-#endif
 
 #include <misc.h>
 #include <list.h>
@@ -98,7 +95,7 @@
 list *songs;
 char **order;
 int tot;
-int control_sock;
+int control_sock = -1;
 
 /* config data */
 char *player;
@@ -112,6 +109,13 @@ int pause_signal = DEFAULT_PAUSE_SIGNAL;
 /* signal handling stuff */
 sigset_t blocked, unblocked;
 volatile int child_died;
+
+void cleanup() {
+  if (control_sock != -1) {
+    close_control_socket(control_sock, 1);
+    control_sock = -1;
+  }
+}
 
 /* Recursive function for parsing command line parameters. It allocates and fills in a
  * list starting at `first' and continuing until the end of the expression, which is
@@ -307,7 +311,7 @@ void shuffle() {
   list_free(songs, 0);
 }
 
-void process_commands(int socket);
+void process_commands();
 
 /* this has to be global for the signal handlers to get at it */
 pid_t playerpid = 0;
@@ -336,7 +340,7 @@ void playall() {
       break;
     default:
       playerpid = f;
-      process_commands(control_sock);
+      process_commands();
       sleep(delay);
     }
     if (counter > 0) {
@@ -351,8 +355,10 @@ void command_last() {
 }
 
 void command_next() {
-  /* FIXME: wake it up first if necessary */
-  if (playerpid) kill(playerpid, kill_signal);
+  if (playerpid) {
+    kill(playerpid, kill_signal);
+    kill(playerpid, SIGCONT); /* in case it was paused */
+  }
 }
 
 void command_pause() {
@@ -369,7 +375,11 @@ void command_stop() {
 }
 
 void dispatch_command(const command_t *cur) {
+#ifdef DEBUG
+  printf("Got command %d\n", cur->command);
+#endif
   switch (cur->command) {
+  case COMMAND_WAKE: /* used internally by SIGCHLD handler */ break;
   case COMMAND_LAST: command_last(); break;
   case COMMAND_NEXT: command_next(); break;
   case COMMAND_PAUSE: command_pause(); break;
@@ -379,49 +389,45 @@ void dispatch_command(const command_t *cur) {
   }
 }
 
-void process_commands(int socket) {
+void process_commands() {
   command_t *cur;
-  fd_set readfds;
   int count;
-#if !HAVE_SYS_SELECT_H
-  struct timeval t;
-#endif
+  int broken;
 
   while (1) {
-    FD_ZERO(&readfds);
-    if (socket != -1) FD_SET(socket, &readfds);
-#if HAVE_SYS_SELECT_H
-    count = pselect(socket + 1, &readfds, NULL, NULL, NULL, &unblocked);
-#else
-    /* Note: there is a race condition here but in the worst case the
-     * timeout will trigger anyway. However this adds overhead which is
-     * why pselect is preferred.
-     */
-    t.tv_sec = 1;
-    t.tv_usec = 0;
-    sigprocmask(SIG_SETMASK, &unblocked, NULL);
-    count = select(socket + 1, &readfds, NULL, NULL, &t);
-    sigprocmask(SIG_SETMASK, &blocked, NULL);
+    cur = (command_t *) malloc(sizeof(command_t)); /* FIXME: handle bigger sizes */
+    if (control_sock == -1) {
+      count = -1;
+      sigsuspend(&unblocked);
+    }
+    else {
+      broken = 0;
+      sigprocmask(SIG_SETMASK, &unblocked, NULL);
+      count = receive_control_packet(control_sock, cur, sizeof(command_t), 1); /* FIXME: bigger sizes */
+      if (count == -1 && errno != EINTR) broken = 1;
+      sigprocmask(SIG_SETMASK, &blocked, NULL);
+      if (broken) {
+        /* assume that the control socket is now broken and stop using it */
+#ifdef DEBUG
+        perror("error on control socket");
 #endif
+        close_control_socket(control_sock, 1);
+        control_sock = -1;
+      }
+    }
+    if (count >= 0)
+      dispatch_command(cur);
     if (child_died) {
       while (waitpid(-1, NULL, WNOHANG) > 0);
       child_died = 0;
+      free(cur);
       return;
     }
-    if (count <= 0) {
-      if (count == -1 && errno != EINTR) die("pselect");
-      continue;
-    }
-    cur = receive_control_packet(socket);
-    if (cur != NULL) {
-      dispatch_command(cur);
-      free(cur);
-    }
+    free(cur);
   }
 }
 
 RETSIGTYPE signalplayer(int sig) {
-  int sendsig;
   switch (sig) {
   case SIGUSR1: command_next(); break;  /* ogg123 prefers SIGINT to SIGTERM */
   case SIGTSTP: command_pause(); break; /* some players ignore TSTP */
@@ -438,12 +444,17 @@ RETSIGTYPE terminate(int sig) {
 
 /* similar to terminate but leaves the player going */
 RETSIGTYPE fastquit(int sig) {
-  cleanup();
-  raise(sig);
+  command_last();
 }
 
 RETSIGTYPE sigchld(int sig) {
+  command_t wake;
+
   child_died = 1;
+  if (control_sock != -1) {
+    wake.command = COMMAND_WAKE;
+    send_control_packet(control_sock, &wake, sizeof(wake), 0); /* FIXME: should we wait? */
+  }
 }
 
 void setsigs() {
@@ -670,7 +681,8 @@ int main(int argc, char *argv[]) {
       close(2);
     }
     setsigs();
-    setsid(); break;
+    setsid();
+    break;
   default: return 0;
   }
 #else
@@ -680,7 +692,7 @@ int main(int argc, char *argv[]) {
   /* the fun stuff */
   shuffle();
   control_sock = get_control_socket(1);
+  atexit(cleanup);
   playall();
-  if (control_sock != -1) close_control_socket(control_sock);
   return 0;
 }

@@ -4,6 +4,7 @@ dist_bin_SCRIPTS = playaudio
 jinamp_SOURCES = jinamp.c list.c load.c misc.c options.c debug.c control.c \
                  parse.y conffile.l list.h load.h misc.h \
                  options.h parse.h debug.h control.h
+jinamp_LDADD = @LIBOBJS@
 jinamp_ctl_SOURCES = jinamp-ctl.c control.c control.h misc.c misc.h
 man1_MANS = jinamp.1.gz jinamp-ctl.1.gz
 EXTRA_DIST = jinamp.1 jinamp-ctl.1

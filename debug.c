@@ -1,5 +1,5 @@
 /*
- $Id: debug.c,v 1.3 2002/05/16 17:40:35 bruce Exp $
+ $Id: debug.c,v 1.4 2002/11/25 01:50:50 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -38,8 +38,13 @@ void dprintf(unsigned int mask, char *fmt, ...) {
   va_list args;
 
   va_start(args, fmt);
-  if (debug_flags & mask)
+  if (debug_flags & mask) {
+#if HAVE_VPRINTF
     vfprintf(stderr, fmt, args);
+#else
+    fprintf(stderr, "%s", fmt);
+#endif
+  }
   va_end(args);
 }
 

@@ -13,9 +13,13 @@ dnl Checks for libraries
 
 dnl Checks for header files
 AC_HEADER_STDC
+if [[ "$ac_cv_header_stdc" = no ]]
+then
+  AC_MSG_ERROR([[A system with standard ANSI C headers is required]])
+fi
 AC_HEADER_SYS_WAIT
 AC_HEADER_DIRENT
-AC_CHECK_HEADERS([sys/resource.h limits.h regex.h sys/un.h sys/select.h])
+AC_CHECK_HEADERS([sys/resource.h limits.h regex.h sys/ipc.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_PID_T
@@ -24,10 +28,16 @@ AC_C_CONST
 
 dnl Checks for library functions.
 AC_FUNC_FORK
-AC_FUNC_MALLOC
+if [[ "$ac_cv_func_fork_works" = no ]]
+then
+  AC_MSG_ERROR([[A working version of fork() is required]])
+fi
 AC_FUNC_VPRINTF
+AC_FUNC_MALLOC
+AC_FUNC_REALLOC
 AC_TYPE_SIGNAL
 AC_FUNC_STAT
+AC_REPLACE_FUNCS([memset])
 AC_CHECK_FUNCS([setpriority pathconf strtol realpath getopt_long regcomp])
 dnl --enable options
 debug=false
@@ -48,7 +58,7 @@ case "${enableval}" in
 esac], [use_suid=false])
 AM_CONDITIONAL(USE_SUID, test x$use_suid = xtrue)
 
-AM_CONDITIONAL(USE_JINAMP_CTL, test x$ac_cv_have_sys_un_h = xyes)
+AM_CONDITIONAL(USE_JINAMP_CTL, test x$ac_cv_have_sys_ipc_h = xyes)
 
 dnl --with options
 DEFAULT_PLAYER='${bindir}/playaudio'
@@ -64,9 +74,13 @@ AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 if [[ "$ac_cv_func_getopt_long" = no ]]
 then
-  AC_MSG_WARN([getopt_long not found, so long options won't work])
+  AC_MSG_WARN([[getopt_long not found, so long options won't work]])
 fi
 if [[ "$ac_cv_func_regcomp" = no ]]
 then
-  AC_MSG_WARN([regcomp not found, so playlists and ignore sets won't work])
+  AC_MSG_WARN([[regcomp not found, so playlists and ignore sets won't work]])
+fi
+if [[ "$ac_cv_header_sys_ipc_h" = no ]]
+then
+  AC_MSG_WARN([[System V IPC not found, so jinamp-ctl will not be built]])
 fi

@@ -1,5 +1,5 @@
 /*
- $Id: jinamp-ctl.c,v 1.4 2002/11/18 14:02:17 bruce Exp $
+ $Id: jinamp-ctl.c,v 1.5 2002/11/25 01:50:50 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
   }
   else show_usage();
 
-  send_control_packet(sock, &msg, sizeof(&msg));
-  close_control_socket(sock);
+  send_control_packet(sock, &msg, sizeof(&msg), 1);
+  close_control_socket(sock, 0);
   return 0;
 }

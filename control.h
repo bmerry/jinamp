@@ -1,5 +1,5 @@
 /*
- $Id: control.h,v 1.3 2002/11/18 08:20:51 bruce Exp $
+ $Id: control.h,v 1.4 2002/11/25 01:50:50 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -29,7 +29,7 @@
 #if HAVE_CONFIG_H
 # include <config.h>
 #endif
-#if HAVE_SYS_UN_H
+#if HAVE_SYS_IPC_H
 # define USING_JINAMP_CTL 1
 #endif
 
@@ -37,6 +37,7 @@
 #include <sys/types.h>
 
 typedef enum {
+  COMMAND_WAKE,
   COMMAND_NEXT,
   COMMAND_LAST,
   COMMAND_PAUSE,
@@ -51,24 +52,22 @@ typedef struct {
   command_type_t command;
 } command_t;
 
-/* returns the socket ID on success, dies on failure. */
+/* returns the socket ID on success, -1 on failure. */
 int get_control_socket(int server);
 
-void close_control_socket(int sock);
-
-/* Called automatically with atexit, but must be called manually
- * if an unnatural (signal-based) termination is imminent.
- */
-void cleanup();
+void close_control_socket(int sock, int server);
 
 /* Sends the given packet to the socket, which must already have been bound
  * and connected to the server
  */
-void send_control_packet(int socket, const command_t *command, size_t command_len);
+int send_control_packet(int socket, const command_t *command, size_t command_len, int wait);
 
-/* returns the control packet if there is one, or NULL if the
- * queue is empty. Caller must free the memory. */
-command_t *receive_control_packet(int socket);
+/* returns the control packet if there is one, or NULL if the queue
+ * is empty. Caller must free the memory. len is the maximum length to
+ * receive; beyond this truncation occurs. Returns the actual size on
+ * success or -1 on failure.
+ */
+int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait);
 
 #endif /* USING_JINAMP_CTL */
 #endif /* JINAMP_CONTROL_H */

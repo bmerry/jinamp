@@ -1,6 +1,6 @@
 %{
 /*
- $Id: conffile.l,v 1.3 2002/05/16 17:40:34 bruce Exp $
+ $Id: conffile.l,v 1.4 2002/11/25 01:50:50 bruce Exp $
  
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -32,9 +32,6 @@
 #endif
 #if HAVE_STRINGS_H
 # include <strings.h>
-#endif
-#if HAVE_MEMORY_H
-# include <memory.h>
 #endif
 #include <stdlib.h>
 

@@ -1,5 +1,5 @@
 /*
- $Id: control.c,v 1.3 2002/11/18 14:46:22 bruce Exp $
+ $Id: control.c,v 1.4 2002/11/25 01:50:50 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -31,99 +31,76 @@
 #if USING_JINAMP_CTL
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#ifndef UNIX_PATH_MAX
-# define UNIX_PATH_MAX 108
-#endif
+#include <sys/ipc.h>
+#include <sys/msg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <misc.h>
 
-const char socksuffix[] = "/.jinamp-socket";
-char *cleanup_name = NULL;
+struct msgbuffer {
+  long mtype;
+  char mtext[1];
+};
 
-void get_sock_name(char *name, int size) {
-  char *home;
+int get_control_socket(int server) {
+  key_t key;
+  const char *home;
+  int oldid;
 
   home = getenv("HOME");
-  if (!home) home = "/";
-  if (strlen(home) + strlen(socksuffix) + 1 > size)
-    die("home directory name is too long for UNIX domain socket address");
-  sprintf(name, "%s%s", home, socksuffix);
-}
-
-void cleanup() {
-  if (cleanup_name) {
-#if DEBUG
-    printf("unlinking %s\n", cleanup_name);
-#endif
-    unlink(cleanup_name);
-    free(cleanup_name);
-  }
-}
-
-/* returns the socket ID on success, -1 on address in use,
-   dies on unexpected failure. */
-int get_control_socket(int server) {
-  struct sockaddr_un addr;
-  int sock;
-
-  addr.sun_family = AF_UNIX;
-  get_sock_name(addr.sun_path, sizeof(addr.sun_path));
-  sock = socket(PF_UNIX, SOCK_DGRAM, 0);
-  if (sock == -1) pdie("socket");
+  if (home == NULL) home = "/";
+  key = ftok(home, 'a');
+  if (key == -1)
+    key = ftok("/", 'a');
+  if (key == -1) return -1;
   if (server) {
-    unlink(addr.sun_path);
-    if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1)
-      return -1;
-    cleanup_name = duplicate(addr.sun_path);
-    if (atexit(cleanup) != 0) die("atexit failed");
+    /* first try to clean up old queues */
+    oldid = msgget(key, 0600);
+    if (oldid != -1)
+      msgctl(oldid, IPC_RMID, NULL);
+    return msgget(key, IPC_CREAT | IPC_EXCL | 0600);
   }
-  else {
-    if (connect(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1) pdie("connect");
-  }
-#if DEBUG
-  printf("Socket: %d (%s)\n", sock, addr.sun_path);
-#endif
-  return sock;
+  else
+    return msgget(key, 0600);
 }
 
-void close_control_socket(int sock) {
-  char sockname[UNIX_PATH_MAX];
-
-  close(sock);
-  get_sock_name(sockname, sizeof(sockname));
+void close_control_socket(int sock, int server) {
+  if (server)
+    msgctl(sock, IPC_RMID, NULL);
 }
 
-/* Sends the given packet to the socket, which must already have been bound
- * and connected to the server
- */
-void send_control_packet(int socket, const command_t *command, size_t command_len) {
-  if (send(socket, command, command_len, 0) == -1)
-    pdie("send");
+int send_control_packet(int socket, const command_t *command, size_t command_len, int wait) {
+  struct msgbuffer *msg;
+  int ret;
+  int olderr;
+
+  msg = malloc(command_len + sizeof(msg->mtype));
+  if (msg == NULL) return -1;
+  msg->mtype = 1;
+  memcpy(&msg->mtext, command, command_len);
+  ret = msgsnd(socket, msg, command_len + sizeof(msg->mtype), wait ? 0 : IPC_NOWAIT);
+  olderr = errno;
+  free(msg);
+  errno = olderr;
+  return ret;
 }
 
-/* returns the control packet if there is one, or NULL if the
- * queue is empty. Caller must free the memory. */
-command_t *receive_control_packet(int socket) {
-  int buffer[1];
-  int length;
-  command_t *answer;
+int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait) {
+  struct msgbuffer *msg;
+  int ret;
 
-  length = recv(socket, buffer, sizeof(buffer), MSG_DONTWAIT | MSG_PEEK | MSG_TRUNC);
-  if (length == -1) {
-    if (errno == EAGAIN) return NULL;
-    else pdie("recv");
-  }
-  answer = (command_t *) safe_malloc(length);
-  length = recv(socket, answer, length, MSG_DONTWAIT);
-  if (length == -1) pdie("recv");
-  return answer;
+  msg = (struct msgbuffer *) malloc(maxlen + sizeof(msg->mtype));
+  ret = msgrcv(socket, msg, maxlen + sizeof(msg->mtype), 1, MSG_NOERROR | (wait ? 0 : IPC_NOWAIT));
+  if (ret == -1) return -1;
+  ret -= sizeof(msg->mtype);
+  if (ret < 0) ret = 0;
+  memcpy(buffer, msg->mtext, ret);
+  return ret;
 }
 
-#endif /* USING_JINAMP_CTL */
+#endif /* USING_JINAMP_CONTROL */
