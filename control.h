@@ -1,5 +1,5 @@
 /*
- $Id: control.h,v 1.2 2002/11/16 21:54:58 bruce Exp $
+ $Id: control.h,v 1.3 2002/11/18 08:20:51 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -39,7 +39,9 @@
 typedef enum {
   COMMAND_NEXT,
   COMMAND_LAST,
-  COMMAND_PAUSE
+  COMMAND_PAUSE,
+  COMMAND_CONTINUE,
+  COMMAND_STOP
 } command_type_t;
 
 /* any payload appears in an extended form of the data structure, in the same

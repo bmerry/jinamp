@@ -15,7 +15,7 @@ dnl Checks for header files
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 AC_HEADER_DIRENT
-AC_CHECK_HEADERS([sys/resource.h limits.h regex.h sys/un.h])
+AC_CHECK_HEADERS([sys/resource.h limits.h regex.h sys/un.h sys/select.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_PID_T

@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.9 2002/11/16 21:54:58 bruce Exp $
+ $Id: jinamp.c,v 1.10 2002/11/18 08:20:51 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -65,6 +65,9 @@
 #if HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
 #endif
+#if HAVE_SYS_SELECT_H
+# include <sys/select.h>
+#endif
 
 #include <misc.h>
 #include <list.h>
@@ -105,6 +108,10 @@ int delay = DEFAULT_DELAY;
 int count = 0, repeat = 0, do_shuffle = 1;
 int kill_signal = DEFAULT_KILL_SIGNAL;
 int pause_signal = DEFAULT_PAUSE_SIGNAL;
+
+/* signal handling stuff */
+sigset_t blocked, unblocked;
+volatile int child_died;
 
 /* Recursive function for parsing command line parameters. It allocates and fills in a
  * list starting at `first' and continuing until the end of the expression, which is
@@ -329,10 +336,7 @@ void playall() {
       break;
     default:
       playerpid = f;
-      /* FIXME: handle asynchonously */
-      while (waitpid(f, NULL, 0) == -1);
-      if (control_sock != -1) process_commands(control_sock);
-      playerpid = 0;
+      process_commands(control_sock);
       sleep(delay);
     }
     if (counter > 0) {
@@ -342,55 +346,120 @@ void playall() {
   }
 }
 
+void command_last() {
+  exit(0);
+}
+
+void command_next() {
+  if (playerpid) kill(playerpid, kill_signal);
+}
+
+void command_pause() {
+  if (playerpid) kill(playerpid, pause_signal);
+}
+
+void command_continue() {
+  if (playerpid) kill(playerpid, SIGCONT);
+}
+
+void command_stop() {
+  command_next();
+  command_last();
+}
+
+void dispatch_command(const command_t *cur) {
+  switch (cur->command) {
+  case COMMAND_LAST: command_last(); break;
+  case COMMAND_NEXT: command_next(); break;
+  case COMMAND_PAUSE: command_pause(); break;
+  case COMMAND_CONTINUE: command_continue(); break;
+  case COMMAND_STOP: command_stop(); break;
+  default: /* just ignore any invalid command packets */
+  }
+}
+
 void process_commands(int socket) {
   command_t *cur;
-  while ((cur = receive_control_packet(socket)) != NULL) {
-    switch (cur->command) {
-    case COMMAND_LAST: exit(0); break;
-    case COMMAND_NEXT: kill(playerpid, kill_signal); break;
-    case COMMAND_PAUSE: kill(playerpid, pause_signal); break;
-    default: /* just ignore any invalid command packets */
+  fd_set readfds;
+  int count;
+
+  while (1) {
+    FD_ZERO(&readfds);
+    if (socket != -1) FD_SET(socket, &readfds);
+#if HAVE_SYS_SELECT_H
+    count = pselect(socket + 1, &readfds, NULL, NULL, NULL, &unblocked);
+#else
+#error "FIXME: need to implement support for systems w/o pselect"
+#endif
+    if (count == -1) {
+      if (errno != EINTR) die("pselect");
+      if (child_died) {
+        while (waitpid(-1, NULL, WNOHANG) > 0);
+        child_died = 0;
+        return;
+      }
+      continue;
     }
-    free(cur);
+    cur = receive_control_packet(socket);
+    if (cur != NULL) {
+      dispatch_command(cur);
+      free(cur);
+    }
   }
 }
 
 RETSIGTYPE signalplayer(int sig) {
   int sendsig;
-  if (playerpid) {
-    switch (sig) {
-    case SIGUSR1: sendsig = kill_signal; break;  /* ogg123 prefers SIGINT to SIGTERM */
-    case SIGTSTP: sendsig = pause_signal; break; /* some players ignore TSTP */
-    case SIGCONT: sendsig = SIGCONT; break;
-    default: sendsig = kill_signal; break;       /* prevents -Wall from whining */
-    }
-    kill(playerpid, sendsig);
+  switch (sig) {
+  case SIGUSR1: command_next(); break;  /* ogg123 prefers SIGINT to SIGTERM */
+  case SIGTSTP: command_pause(); break; /* some players ignore TSTP */
+  case SIGCONT: command_continue(); break;
+  default: die("unexpected signal %d", sig);
   }
-  signal(sig, signalplayer);
 }
 
 RETSIGTYPE terminate(int sig) {
-  if (playerpid)
-    kill(playerpid, kill_signal);
-  signal(sig, SIG_DFL);
+  command_next();
   cleanup();
   raise(sig);
 }
 
 /* similar to terminate but leaves the player going */
 RETSIGTYPE fastquit(int sig) {
-  signal(sig, SIG_DFL);
   cleanup();
   raise(sig);
 }
 
+RETSIGTYPE sigchld(int sig) {
+  child_died = 1;
+}
+
 void setsigs() {
-  signal(SIGUSR1, signalplayer);
-  signal(SIGTSTP, signalplayer);
-  signal(SIGCONT, signalplayer);
-  signal(SIGTERM, terminate);
-  signal(SIGINT, fastquit);
-  signal(SIGHUP, fastquit);
+  struct sigaction act;
+
+  sigemptyset(&act.sa_mask);
+  act.sa_flags = SA_NOCLDSTOP;
+
+  sigemptyset(&blocked);
+  sigprocmask(SIG_BLOCK, &act.sa_mask, &unblocked); /* fetch current */
+  sigprocmask(SIG_BLOCK, &act.sa_mask, &blocked);
+  sigaddset(&blocked, SIGCHLD);
+  sigprocmask(SIG_BLOCK, &blocked, NULL);  /* block SIGCHLD */
+
+  act.sa_handler = signalplayer;
+  if (sigaction(SIGUSR1, &act, NULL) == -1) die("sigaction");
+  if (sigaction(SIGTSTP, &act, NULL) == -1) die("sigaction");
+  if (sigaction(SIGCONT, &act, NULL) == -1) die("sigaction");
+
+  act.sa_handler = sigchld;
+  if (sigaction(SIGCHLD, &act, NULL) == -1) die("sigaction");
+
+  act.sa_flags |= SA_ONESHOT;
+  act.sa_handler = terminate;
+  if (sigaction(SIGTERM, &act, NULL) == -1) die("sigaction");
+  act.sa_handler = fastquit;
+  if (sigaction(SIGINT, &act, NULL) == -1) die("sigaction");
+  if (sigaction(SIGHUP, &act, NULL) == -1) die("sigaction");
 }
 
 /* Shows the help. The parameters are just to make it work as a callback */
