@@ -1,6 +1,6 @@
-AC_INIT(jinamp, 0.3.0.3, bmerry@sourceforge.net)
+AC_INIT(jinamp, 0.3.0.4, bmerry@sourceforge.net)
 AC_CONFIG_SRCDIR(jinamp.c)
-AM_INIT_AUTOMAKE(jinamp, 0.3.0.3)
+AM_INIT_AUTOMAKE(jinamp, 0.3.0.4)
 AM_CONFIG_HEADER(config.h)
 
 dnl Checks for programs
