@@ -21,7 +21,7 @@ if echo "x$1" | grep '\.mp3$' > /dev/null; then
   id3 -l -- "$1" | head -n 2 | tail -n 1 > /dev/tty10
   exec mpg123 -b 32 -q -- "$1"
 elif echo "x$1" | grep '\.ogg$' > /dev/null; then
-  vorbiscomment "$1" | awk -F= '/^[Tt]itle/{title=$2}/^[Aa]rtist/{artist=$2}\
+  vorbiscomment -- "$1" | awk -F= '/^[Tt]itle/{title=$2}/^[Aa]rtist/{artist=$2}\
                             END{printf "Title: %-32s Artist: %s\n", title, artist;}' > /dev/tty10
   exec ogg123 -b 32 -q -- "$1"
 fi
