@@ -1,4 +1,6 @@
 /*
+ $Id: jinamp.c,v 1.2 2002/01/05 22:53:14 bruce Exp $
+
  jinamp: a command line music shuffler
  Copyright (C) 2001  Bruce Merry.
 
@@ -98,6 +100,7 @@ char *player;
 char *playlist_regex;
 char *exclude_regex;
 int delay = DEFAULT_DELAY;
+int count = 0;
 int kill_signal = DEFAULT_KILL_SIGNAL;
 int pause_signal = DEFAULT_PAUSE_SIGNAL;
 
@@ -322,6 +325,10 @@ void playall() {
       playerpid = 0;
       sleep(delay);
     }
+    if (count > 0) {
+      count--;
+      if (count == 0) break;
+    }
   }
 }
 
@@ -361,6 +368,7 @@ void show_help(const char *argument, void *data) {
   printf("Using ! negates the set (it may need to be escaped from the shell)\n\n");
   printf("\t-p, --player\tOverride the default player [" DEFAULT_PLAYER "]\n");
   printf("\t-d, --delay\tOverride the default inter-song delay [%d]\n", DEFAULT_DELAY);
+  printf("\t-c, --count\tNumber of songs to play (0 for infinite loop)\n");
   printf("\t-x, --exclude\tSpecify files to ignore (extended regex)\n");
   printf("\t-L, --playlist\tSpecify extended regex for playlists\n");
   printf("\t-h, --help\tPrint this help text and exit\n");
@@ -413,11 +421,37 @@ void delay_callback(const char *argument, void *data) {
 #endif
 }
 
+void count_callback(const char *argument, void *data) {
+  char *check;
+
+#if !HAVE_STRTOL
+  count = atoi(argument);
+#else
+  count = (int) strtol(argument, &check, 10);
+  if (*check) {
+    printf("Count is not a valid integer, using infinite repeat\n");
+    count = 0;
+  }
+  if (delay == LONG_MAX && errno == ERANGE) {
+    printf("Count overflowed, using infinite repeat\n");
+    count = 0;
+  }
+#endif
+  if (count < 0) {
+    printf("Delay cannot be negative, using infinite repeat\n");
+    count = 0;
+  }
+#if DEBUG
+  printf("Using count: %d\n", count);
+#endif
+}
+
 int options(int argc, char *argv[]) {
   struct parameter opts[] = {
   {'p', "player", "player", required_argument, string_callback, &player},
   {'d', "delay", "delay", required_argument, delay_callback, NULL},
   {'h', "help", NULL, no_argument, show_help, NULL},
+  {'c', "count", "count", required_argument, count_callback, NULL},
   {'x', "exclude", "exclude", required_argument, string_callback, &exclude_regex},
   {'L', "playlist", "playlist", required_argument, string_callback, &playlist_regex},
   {'V', "version", NULL, no_argument, show_version, NULL},

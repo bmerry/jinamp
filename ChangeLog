@@ -1,3 +1,8 @@
+jinamp 0.3.0.3
+--------------
+* Imported into CVS
+* removed a few generated files from the release
+
 jinamp 0.3.0.2
 --------------
 * Fixed up the ChangeLog - should be the same as 0.3.0.1 otherwise

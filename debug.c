@@ -1,4 +1,6 @@
 /*
+ $Id: debug.c,v 1.2 2002/01/05 22:53:14 bruce Exp $
+
  jinamp: a command line music shuffler
  Copyright (C) 2001  Bruce Merry.
 
