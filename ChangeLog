@@ -1,3 +1,8 @@
+jinamp 0.3.0.6
+--------------
+* Updated Copyright notices to include 2002
+* Fixed version numbering a bit
+
 jinamp 0.3.0.5
 --------------
 * fixed crash when subtracting songs that weren't in the list anyway
