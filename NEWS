@@ -1,3 +1,13 @@
+2002-11-18 jinamp 0.3.1
+
+Wow, almost a year since the last release! This release finally
+includes something I've been wanting to add for a long time but haven't
+found time for: jinamp-ctl. It replaces all the crude control using
+signals with a program that sends commands to jinamp over a socket. So
+far the actual functionality is pretty similar, but the new approach is
+a lot more extensible and you should expect new features soon (such as
+the ability to change the playlist at runtime).
+
 2001-12-09 jinamp 0.3
 
 This is a total rewrite of the list management code, to use AVL trees.

@@ -1,5 +1,5 @@
 /*
- $Id: control.c,v 1.2 2002/11/16 21:54:58 bruce Exp $
+ $Id: control.c,v 1.3 2002/11/18 14:46:22 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -45,7 +45,7 @@
 #include <misc.h>
 
 const char socksuffix[] = "/.jinamp-socket";
-char *cleanup_name = NULL; /* FIXME: make this is a list */
+char *cleanup_name = NULL;
 
 void get_sock_name(char *name, int size) {
   char *home;
@@ -82,7 +82,6 @@ int get_control_socket(int server) {
     if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1)
       return -1;
     cleanup_name = duplicate(addr.sun_path);
-    /* FIXME: having more than one */
     if (atexit(cleanup) != 0) die("atexit failed");
   }
   else {

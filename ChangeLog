@@ -1,3 +1,8 @@
+jinamp 0.3.1
+--------------
+* Added jinamp-ctl, and associated backend code in jinamp
+* SIGHUP and "jinamp-ctl last" now cause jinamp to continue running
+  until the player exits.
 * Changed last reference to metaplay (the old name) from headers
 
 jinamp 0.3.0.6

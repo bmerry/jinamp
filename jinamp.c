@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.11 2002/11/18 14:02:17 bruce Exp $
+ $Id: jinamp.c,v 1.12 2002/11/18 14:46:22 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -383,6 +383,9 @@ void process_commands(int socket) {
   command_t *cur;
   fd_set readfds;
   int count;
+#if !HAVE_SYS_SELECT_H
+  struct timeval t;
+#endif
 
   while (1) {
     FD_ZERO(&readfds);
@@ -390,15 +393,23 @@ void process_commands(int socket) {
 #if HAVE_SYS_SELECT_H
     count = pselect(socket + 1, &readfds, NULL, NULL, NULL, &unblocked);
 #else
-#error "FIXME: need to implement support for systems w/o pselect"
+    /* Note: there is a race condition here but in the worst case the
+     * timeout will trigger anyway. However this adds overhead which is
+     * why pselect is preferred.
+     */
+    t.tv_sec = 1;
+    t.tv_usec = 0;
+    sigprocmask(SIG_SETMASK, &unblocked, NULL);
+    count = select(socket + 1, &readfds, NULL, NULL, &t);
+    sigprocmask(SIG_SETMASK, &blocked, NULL);
 #endif
-    if (count == -1) {
-      if (errno != EINTR) die("pselect");
-      if (child_died) {
-        while (waitpid(-1, NULL, WNOHANG) > 0);
-        child_died = 0;
-        return;
-      }
+    if (child_died) {
+      while (waitpid(-1, NULL, WNOHANG) > 0);
+      child_died = 0;
+      return;
+    }
+    if (count <= 0) {
+      if (count == -1 && errno != EINTR) die("pselect");
       continue;
     }
     cur = receive_control_packet(socket);
