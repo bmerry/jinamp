@@ -2,7 +2,8 @@ jinamp 1.0
 ----------
 * Corrected email address
 * Made it possible to build in a separate directory
-* Updated dates
+* Improved portability (now compiles on all BSD's, Solaris and OS X,
+  with some limitations on functionality).
 
 jinamp 0.3.9
 ------------

@@ -1,5 +1,5 @@
 /*
- $Id: control.h,v 1.8 2004/06/15 18:55:06 bruce Exp $
+ $Id: control.h,v 1.9 2004/06/16 18:22:32 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002, 2004  Bruce Merry.
@@ -29,7 +29,7 @@
 #if HAVE_CONFIG_H
 # include <config.h>
 #endif
-#if HAVE_SYS_IPC_H
+#if HAVE_SYS_IPC_H && HAVE_SYS_MSG_H
 # define USING_JINAMP_CTL 1
 #endif
 

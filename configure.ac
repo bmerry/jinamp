@@ -20,7 +20,7 @@ then
 fi
 AC_HEADER_SYS_WAIT
 AC_HEADER_DIRENT
-AC_CHECK_HEADERS([sys/resource.h limits.h regex.h sys/ipc.h])
+AC_CHECK_HEADERS([sys/resource.h limits.h regex.h sys/ipc.h sys/msg.h])
 AC_CHECK_HEADERS([fcntl.h], [], [AC_MSG_ERROR([[Missing fcntl.h]])])
 AC_CHECK_HEADERS([stddef.h], [], [AC_MSG_ERROR([[Missing stddef.h]])])
 
@@ -58,7 +58,15 @@ case "${enableval}" in
 esac], [use_suid=false])
 AM_CONDITIONAL(USE_SUID, test x$use_suid = xtrue)
 
-AM_CONDITIONAL(USE_JINAMP_CTL, test x$ac_cv_have_sys_ipc_h = xyes)
+have_ipc=no
+if test x$ac_cv_header_sys_ipc_h = xyes
+then
+  if test x$ac_cv_header_sys_msg_h = xyes
+  then
+    have_ipc=yes
+  fi
+fi
+AM_CONDITIONAL(USING_JINAMP_CTL, test x$have_ipc = xyes)
 
 dnl --with options
 DEFAULT_PLAYER='${bindir}/playaudio'
@@ -72,15 +80,15 @@ AC_SUBST(DEFAULT_PLAYER)
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
-if [[ "$ac_cv_func_getopt_long" = no ]]
+if test x$ac_cv_func_getopt_long = xno
 then
   AC_MSG_WARN([[getopt_long not found, so long options won't work]])
 fi
-if [[ "$ac_cv_func_regcomp" = no ]]
+if test x$ac_cv_func_regcomp = xno
 then
   AC_MSG_WARN([[regcomp not found, so playlists and ignore sets won't work]])
 fi
-if [[ "$ac_cv_header_sys_ipc_h" = no ]]
+if test x$have_ipc = xno
 then
   AC_MSG_WARN([[System V IPC not found, so jinamp-ctl will not be built]])
 fi
