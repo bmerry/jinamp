@@ -1,5 +1,5 @@
 /*
- $Id: debug.h,v 1.4 2002/06/27 10:55:43 bruce Exp $
+ $Id: debug.h,v 1.5 2002/06/27 11:40:18 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -54,6 +54,11 @@ extern unsigned int debug_flags;
 
 #endif /* DEBUG */
 
-void dprintf(unsigned int mask, char *fmt, ...);
+#ifdef __GNUC__
+# define DPRINTF_ATTRIBUTES __attribute__ ((format(printf, 2, 3)))
+#else
+# define DPRINTF_ATTRIBUTES
+#endif
+void dprintf(unsigned int mask, char *fmt, ...) DPRINTF_ATTRIBUTES;
 
 #endif /* JINAMP_DEBUG_H */
