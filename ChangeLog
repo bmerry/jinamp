@@ -1,7 +1,9 @@
 jinamp 0.3.0.3
 --------------
-* Imported into CVS
-* removed a few generated files from the release
+* imported into CVS
+* removed a few arb files that were lying around being useless
+* added a --count option
+* updated manual for above
 
 jinamp 0.3.0.2
 --------------
