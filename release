@@ -1,0 +1,4 @@
+#!/bin/sh
+cvs edit
+fakeroot make dist
+cvs unedit
