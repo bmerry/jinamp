@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.3 2002/01/06 20:58:45 bruce Exp $
+ $Id: jinamp.c,v 1.4 2002/01/07 02:24:47 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001  Bruce Merry.
@@ -100,7 +100,7 @@ char *player;
 char *playlist_regex;
 char *exclude_regex;
 int delay = DEFAULT_DELAY;
-int count = 0, repeat = 0;
+int count = 0, repeat = 0, do_shuffle = 1;
 int kill_signal = DEFAULT_KILL_SIGNAL;
 int pause_signal = DEFAULT_PAUSE_SIGNAL;
 
@@ -398,6 +398,14 @@ void string_callback(const char *argument, void *data) {
   }
 }
 
+void boolean_callback(const char *argument, void *data) {
+  *((int *) data) = 1;
+}
+
+void invert_callback(const char *argument, void *data) {
+  *((int *) data) = 0;
+}
+
 void delay_callback(const char *argument, void *data) {
   char *check;
 
@@ -480,6 +488,8 @@ int options(int argc, char *argv[]) {
   {'h', "help", NULL, no_argument, show_help, NULL},
   {'c', "count", "count", required_argument, count_callback, NULL},
   {'r', "repeat", "repeat", required_argument, repeat_callback, NULL},
+  {'n', "no-shuffle", "no-shuffle", no_argument, invert_callback, &do_shuffle},
+  {'s', "shuffle", "shuffle", no_argument, boolean_callback, &do_shuffle},
   {'x', "exclude", "exclude", required_argument, string_callback, &exclude_regex},
   {'L', "playlist", "playlist", required_argument, string_callback, &playlist_regex},
   {'V', "version", NULL, no_argument, show_version, NULL},
@@ -551,7 +561,8 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* the fun stuff */
-  shuffle();
+  if (do_shuffle)
+    shuffle();
   playall();
   return 0;
 }
