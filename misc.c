@@ -1,5 +1,5 @@
 /*
- $Id: misc.c,v 1.2 2002/01/05 22:53:14 bruce Exp $
+ $Id: misc.c,v 1.3 2002/01/20 23:25:49 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001  Bruce Merry.
@@ -40,6 +40,9 @@
 #endif
 #if HAVE_STRINGS_H
 # include <strings.h>
+#endif
+#if HAVE_SYS_TYPES_H
+# include <sys/types.h>
 #endif
 #if HAVE_REGEX_H
 # include <regex.h>
