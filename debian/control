@@ -1,0 +1,17 @@
+Source: jinamp
+Section: sound
+Priority: optional
+Maintainer: Bruce Merry <bmerry@sourceforge.net>
+Build-Depends: debhelper (>> 3.0.0)
+Standards-Version: 3.5.2
+
+Package: jinamp
+Architecture: any
+Depends: ${shlibs:Depends}
+Recommends: mpg123 | vorbis-tools
+Description: A background meta-player with powerful playlist selection
+ Rather than being an MP3 or Ogg player, jinamp uses an external player
+ to do the playing. It focuses on playlist selection and allows for
+ playlists and directories to be expanded recursively and for sets of
+ files to be excluded.
+

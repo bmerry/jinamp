@@ -1,5 +1,5 @@
 /*
- $Id: control.c,v 1.4 2002/11/25 01:50:50 bruce Exp $
+ $Id: control.c,v 1.5 2002/12/15 01:00:08 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -74,14 +74,14 @@ void close_control_socket(int sock, int server) {
     msgctl(sock, IPC_RMID, NULL);
 }
 
-int send_control_packet(int socket, const command_t *command, size_t command_len, int wait) {
+int send_control_packet(int socket, const command_t *command, size_t command_len, int wait, int toserver) {
   struct msgbuffer *msg;
   int ret;
   int olderr;
 
   msg = malloc(command_len + sizeof(msg->mtype));
   if (msg == NULL) return -1;
-  msg->mtype = 1;
+  msg->mtype = toserver ? 1 : 2;
   memcpy(&msg->mtext, command, command_len);
   ret = msgsnd(socket, msg, command_len + sizeof(msg->mtype), wait ? 0 : IPC_NOWAIT);
   olderr = errno;
@@ -90,12 +90,13 @@ int send_control_packet(int socket, const command_t *command, size_t command_len
   return ret;
 }
 
-int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait) {
+int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait, int server) {
   struct msgbuffer *msg;
   int ret;
 
   msg = (struct msgbuffer *) malloc(maxlen + sizeof(msg->mtype));
-  ret = msgrcv(socket, msg, maxlen + sizeof(msg->mtype), 1, MSG_NOERROR | (wait ? 0 : IPC_NOWAIT));
+  ret = msgrcv(socket, msg, maxlen + sizeof(msg->mtype),
+               server ? 1 : 2, MSG_NOERROR | (wait ? 0 : IPC_NOWAIT));
   if (ret == -1) return -1;
   ret -= sizeof(msg->mtype);
   if (ret < 0) ret = 0;

@@ -1,5 +1,5 @@
 /*
- $Id: jinamp-ctl.c,v 1.6 2002/12/02 05:34:37 bruce Exp $
+ $Id: jinamp-ctl.c,v 1.7 2002/12/15 01:00:08 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -34,6 +34,9 @@
 #if HAVE_STRINGS_H
 # include <strings.h>
 #endif
+#include <signal.h>
+#include <unistd.h>
+#include <errno.h>
 
 #include <misc.h>
 #include <control.h>
@@ -47,6 +50,7 @@ void show_usage() {
   fprintf(stderr, "pause\t\tPause current file\n");
   fprintf(stderr, "continue\tResume current file\n");
   fprintf(stderr, "replace\tReplace play list with command line arguments\n");
+  fprintf(stderr, "query\tReturns the filename of the currently playing file\n");
   exit(1);
 }
 
@@ -64,7 +68,34 @@ void send_replace(int sock, int argc, const char *argv[]) {
     total += count;
   }
   rep.argc = i;
-  send_control_packet(sock, (command_t *) &rep, sizeof(rep) - sizeof(rep.argv) + total, 1);
+  send_control_packet(sock, (command_t *) &rep, sizeof(rep) - sizeof(rep.argv) + total, 1, 1);
+}
+
+RETSIGTYPE alarm_handler(int sig) {
+  fprintf(stderr, "Timed out\n");
+  exit(2);
+}
+
+void do_query(int sock) {
+  command_t query;
+  command_string_t reply;
+
+  query.command = COMMAND_QUERY;
+  send_control_packet(sock, &query, sizeof(query), 1, 1);
+  receive_control_packet(sock, (command_t *) &reply, sizeof(reply), 1, 0);
+  reply.value[sizeof(reply.value) - 1] = '\0';
+  printf("%s\n", reply.value);
+}
+
+void prepare_alarm() {
+  struct sigaction act;
+
+  act.sa_handler = alarm_handler;
+  sigemptyset(&act.sa_mask);
+  act.sa_flags = 0;
+  sigaction(SIGALRM, &act, NULL);
+
+  alarm(2);
 }
 
 int main(int argc, const char *argv[]) {
@@ -72,9 +103,15 @@ int main(int argc, const char *argv[]) {
   int sent = 0;
   command_t msg;
 
+  prepare_alarm();
   if (argc <= 1) show_usage();
   sock = get_control_socket(0);
-  if (sock == -1) pdie("failed to open connection");
+  if (sock == -1) {
+    if (errno == ENOENT)
+      die("failed to open connection: jinamp not running");
+    else
+      pdie("failed to open connection");
+  }
   if (!strcmp(argv[1], "next"))
     msg.command = COMMAND_NEXT;
   else if (!strcmp(argv[1], "last"))
@@ -89,10 +126,14 @@ int main(int argc, const char *argv[]) {
     send_replace(sock, argc - 2, argv + 2);
     sent = 1;
   }
+  else if (!strcmp(argv[1], "query")) {
+    do_query(sock);
+    sent = 1;
+  }
   else show_usage();
 
   if (!sent)
-    send_control_packet(sock, &msg, sizeof(msg), 1);
+    send_control_packet(sock, &msg, sizeof(msg), 1, 1);
   close_control_socket(sock, 0);
   return 0;
 }

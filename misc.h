@@ -1,5 +1,5 @@
 /*
- $Id: misc.h,v 1.3 2002/05/16 17:40:35 bruce Exp $
+ $Id: misc.h,v 1.4 2002/12/15 01:00:08 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -50,6 +50,9 @@ void *safe_malloc(size_t size);
 
 /* Duplicates the given string and returns the pointer */
 char *duplicate(const char *str);
+
+/* Like strncpy, but always leaves space for and inserts a NULL terminator */
+char *my_strncpy(char *dst, const char *src, size_t n);
 
 /* Wrappers around regcomp/regexec/regfree that will simply call egrep
  * on systems that lack these (they are specified by POSIX.2).

@@ -1,4 +1,4 @@
-jinamp 0.3.1
+jinamp 0.3.9
 --------------
 * Added jinamp-ctl, and associated backend code in jinamp
 * SIGHUP and "jinamp-ctl last" now cause jinamp to continue running

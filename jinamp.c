@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.16 2002/12/02 05:34:37 bruce Exp $
+ $Id: jinamp.c,v 1.17 2002/12/15 01:00:08 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -97,6 +97,7 @@ list *songs;
 char **order;
 int tot;
 int control_sock = -1;
+const char *current_file;
 
 /* config data */
 char *player;
@@ -315,12 +316,11 @@ pid_t playerpid = 0;
 /* the main play loop */
 void playall() {
   int i;
-  char *cur;
   pid_t f;
 
   counter = tot * repeat + count;
   for (i = 0;; i = (i + 1) % tot) {
-    cur = order[i];
+    current_file = order[i];
     f = fork();
     switch (f) {
     case -1: perror("jinamp: fork"); cleanup(); exit(2); break;
@@ -332,7 +332,7 @@ void playall() {
       close(2);
       setsid();
 #endif
-      execl(player, player, cur, NULL);
+      execl(player, player, current_file, NULL);
       cleanup();
       exit(2);
       break;
@@ -404,6 +404,7 @@ int unpack(const command_list_t *cmd, const char ***argv) {
 void dispatch_command(const command_t *cur) {
   int argc;
   const char **argv;
+  command_string_t reply;
 
   dprintf(DBG_CONTROL_DATA, "Got command %d\n", cur->command);
   switch (cur->command) {
@@ -419,6 +420,11 @@ void dispatch_command(const command_t *cur) {
       populate(argc, argv, 0);
       shuffle();
     }
+    break;
+  case COMMAND_QUERY:
+    reply.command = REPLY_QUERY;
+    my_strncpy(reply.value, current_file, sizeof(reply.value));
+    send_control_packet(control_sock, (command_t *) &reply, (reply.value + strlen(reply.value) + 1) - (char *) &reply, 0, 0);
     break;
   }
 }
@@ -437,7 +443,7 @@ void process_commands() {
     else {
       broken = 0;
       sigprocmask(SIG_SETMASK, &unblocked, NULL);
-      count = receive_control_packet(control_sock, cur, sizeof(command_list_t), 1); /* FIXME: arb sizes */
+      count = receive_control_packet(control_sock, cur, sizeof(command_list_t), 1, 1); /* FIXME: arb sizes */
       if (count == -1 && errno != EINTR) broken = 1;
       sigprocmask(SIG_SETMASK, &blocked, NULL);
       if (broken) {
@@ -487,7 +493,7 @@ RETSIGTYPE sigchld(int sig) {
   child_died = 1;
   if (control_sock != -1) {
     wake.command = COMMAND_WAKE;
-    send_control_packet(control_sock, &wake, sizeof(wake), 0); /* FIXME: should we wait? */
+    send_control_packet(control_sock, &wake, sizeof(wake), 0, 1); /* FIXME: should we wait? */
   }
 }
 

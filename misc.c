@@ -1,5 +1,5 @@
 /*
- $Id: misc.c,v 1.5 2002/11/25 01:50:50 bruce Exp $
+ $Id: misc.c,v 1.6 2002/12/15 01:00:08 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -79,6 +79,12 @@ char *duplicate(const char *str) {
   tmp = (char *) safe_malloc(strlen(str) + 1);
   strcpy(tmp, str);
   return tmp;
+}
+
+char *my_strncpy(char *dst, const char *src, size_t n) {
+  if (n == 0) return;
+  dst[n - 1] = '\0';
+  return strncpy(dst, src, n - 1);
 }
 
 void *regex_init(const char *regex) {
