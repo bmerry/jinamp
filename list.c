@@ -1,8 +1,8 @@
 /*
- $Id: list.c,v 1.6 2002/12/02 05:34:38 bruce Exp $
+ $Id: list.c,v 1.7 2004/06/15 18:55:06 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002  Bruce Merry.
+ Copyright (C) 2001, 2002, 2004  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -49,13 +49,13 @@
 list *list_alloc() {
   list *tmp = (list *) safe_malloc(sizeof(list));
 
-  dprintf(DBG_LIST_OPS, "%p: list created\n", tmp);
+  dprintf(DBG_LIST_OPS, "%p: list created\n", (void *) tmp);
   list_init(tmp);
   return tmp;
 }
 
 void list_init(list *l) {
-  dprintf(DBG_LIST_OPS, "%p: list initialised\n", l);
+  dprintf(DBG_LIST_OPS, "%p: list initialised\n", (void *) l);
   l->head = NULL;
 }
 
@@ -66,7 +66,7 @@ void count_walker(char *item, void *data) {
 size_t list_count(list *l) {
   size_t tot = 0;
   list_walk(l, count_walker, (void *) &tot);
-  dprintf(DBG_LIST_OPS, "%p: counted: %d elements\n", l, (int) tot);
+  dprintf(DBG_LIST_OPS, "%p: counted: %d elements\n", (void *) l, (int) tot);
   return tot;
 }
 
@@ -134,13 +134,13 @@ void avl_print_tree(node *root, int offset) {
 /* checks that the AVL tree is valid */
 void avl_assert_valid(list *l) {
   char *first, *last;                       /* dummy */
-  dprintf(DBG_LIST_OPS, "%p: asserting AVL tree\n", l);
+  dprintf(DBG_LIST_OPS, "%p: asserting AVL tree\n", (void *) l);
   avl_assert_order(l->head, &first, &last);
   avl_assert_depth(l->head);
 }
 
 void print_list(list *l) {
-  dprintf(DBG_LIST_SHOW, "Printing list %p\n", l);
+  dprintf(DBG_LIST_SHOW, "Printing list %p\n", (void *) l);
   if (debug_flags && DBG_LIST_SHOW && l->head)
     avl_print_tree(l->head, 2);
 }
@@ -221,7 +221,7 @@ int list_insert(list *l, char *item) {
   node *tmp;
   int r;
 
-  dprintf(DBG_LIST_OPS, "%p: inserting %s\n", l, item);
+  dprintf(DBG_LIST_OPS, "%p: inserting %s\n", (void *) l, item);
   if (l->head == NULL) {
     tmp = (node *) safe_malloc(sizeof(node));
     tmp->children[0] = NULL;
@@ -297,7 +297,7 @@ int avl_remove(node **root, char *item, int strings) {
 int list_remove(list *l, char *item) {
   int r;
 
-  dprintf(DBG_LIST_OPS, "%p: removing %s\n", l, item);
+  dprintf(DBG_LIST_OPS, "%p: removing %s\n", (void *) l, item);
   if (l->head == NULL)
     r = 0;
   else
@@ -311,7 +311,7 @@ int list_find(list *l, const char *item) {
   node *cur;
   int cmp;
 
-  dprintf(DBG_LIST_OPS, "%p: searching for %s\n", l, item);
+  dprintf(DBG_LIST_OPS, "%p: searching for %s\n", (void *) l, item);
   cur = l->head;
   while (cur) {
     cmp = strcmp(item, cur->item);
@@ -336,13 +336,13 @@ void avl_dispose(node *root, int strings) {
 }
 
 void list_dispose(list *l, int strings) {
-  dprintf(DBG_LIST_OPS, "%p: disposing (strings = %d)\n", l, strings);
+  dprintf(DBG_LIST_OPS, "%p: disposing (strings = %d)\n", (void *) l, strings);
   avl_dispose(l->head, strings);
   l->head = NULL;
 }
 
 void list_free(list *l, int strings) {
-  dprintf(DBG_LIST_OPS, "%p: freeing (strings = %d)\n", l, strings);
+  dprintf(DBG_LIST_OPS, "%p: freeing (strings = %d)\n", (void *) l, strings);
   list_dispose(l, strings);
   free(l);
 }
@@ -357,7 +357,7 @@ void avl_walk(node *root, void (*walker)(char *item, void *data), void *data) {
 }
 
 void list_walk(list *l, void (*walker)(char *item, void *data), void *data) {
-  dprintf(DBG_LIST_OPS, "%p: walker\n", l);
+  dprintf(DBG_LIST_OPS, "%p: walker\n", (void *) l);
   avl_walk(l->head, walker, data);
 }
 
@@ -366,7 +366,7 @@ void merge_walker(char *item, void *data) {
 }
 
 void list_merge(list *list1, list *list2) {
-  dprintf(DBG_LIST_OPS, "merging %p into %p\n", list2, list1);
+  dprintf(DBG_LIST_OPS, "merging %p into %p\n", (void *) list2, (void *) list1);
   list_walk(list2, merge_walker, (void *) list1);
 }
 
@@ -375,7 +375,7 @@ void subtract_walker(char *item, void *data) {
 }
 
 void list_subtract(list *list1, list *list2) {
-  dprintf(DBG_LIST_OPS, "subtracting %p from %p\n", list2, list1);
+  dprintf(DBG_LIST_OPS, "subtracting %p from %p\n", (void *) list2, (void *) list1);
   list_walk(list2, subtract_walker, (void *) list1);
 }
 
@@ -389,7 +389,7 @@ void list_mask(list *list1, list *list2) {
   list *small, *big, *tmp;
   list *data[2];
 
-  dprintf(DBG_LIST_OPS, "masking %p with %p\n", list1, list2);
+  dprintf(DBG_LIST_OPS, "masking %p with %p\n", (void *) list1, (void *) list2);
   tmp = list_alloc();
   if (GET_DEPTH(list1->head) < GET_DEPTH(list2->head)) {
     small = list1;

@@ -18,3 +18,5 @@ jinamp
 jinamp-ctl
 jinamp.1.gz
 jinamp-ctl.1.gz
+build-stamp
+configure-stamp

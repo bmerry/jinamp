@@ -6,17 +6,10 @@ jinamp_SOURCES = jinamp.c list.c load.c misc.c options.c debug.c control.c \
                  options.h parse.h debug.h control.h
 jinamp_LDADD = @LIBOBJS@
 jinamp_ctl_SOURCES = jinamp-ctl.c control.c control.h misc.c misc.h
-man1_MANS = jinamp.1.gz jinamp-ctl.1.gz
-EXTRA_DIST = jinamp.1 jinamp-ctl.1 debian/rules debian/control debian/copyright debian/changelog debian/docs debian/dirs
+dist_man_MANS = jinamp.1 jinamp-ctl.1
+EXTRA_DIST = debian/rules debian/control debian/copyright debian/changelog debian/docs debian/dirs
 
-CLEANFILES = jinamp.1.gz jinamp-ctl.1.gz
 MAINTAINERCLEANFILES = parse.c parse.h conffile.c
-
-jinamp.1.gz: jinamp.1
-	gzip -9 -c jinamp.1 > jinamp.1.gz
-
-jinamp-ctl.1.gz: jinamp-ctl.1
-	gzip -9 -c jinamp-ctl.1 > jinamp-ctl.1.gz
 
 AM_YFLAGS = -d
 conffile.o options.o: parse.h

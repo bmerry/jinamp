@@ -1,7 +1,7 @@
 Source: jinamp
 Section: sound
 Priority: optional
-Maintainer: Bruce Merry <bmerry@sourceforge.net>
+Maintainer: Bruce Merry <bmerry@users.sourceforge.net>
 Build-Depends: debhelper (>> 3.0.0)
 Standards-Version: 3.5.2
 

@@ -1,8 +1,8 @@
 /*
- $Id: options.c,v 1.4 2002/12/02 05:34:38 bruce Exp $
+ $Id: options.c,v 1.5 2004/06/15 18:55:06 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002  Bruce Merry.
+ Copyright (C) 2001, 2002, 2004  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as

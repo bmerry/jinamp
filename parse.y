@@ -1,9 +1,9 @@
 %{
 /*
- $Id: parse.y,v 1.5 2002/11/18 14:06:55 bruce Exp $
+ $Id: parse.y,v 1.6 2004/06/15 18:55:06 bruce Exp $
  
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002  Bruce Merry.
+ Copyright (C) 2001, 2002, 2004  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as

@@ -1,8 +1,8 @@
 /*
- $Id: jinamp.c,v 1.18 2002/12/15 07:43:40 bruce Exp $
+ $Id: jinamp.c,v 1.19 2004/06/15 18:55:06 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002  Bruce Merry.
+ Copyright (C) 2001, 2002, 2004  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -27,10 +27,11 @@
 # include <config.h>
 #endif
 
+#define _BSD_SOURCE
+#define _XOPEN_SOURCE
 #if HAVE_GETOPT_LONG
 # include <getopt.h>
 #endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -430,6 +431,7 @@ void dispatch_command(const command_t *cur) {
     my_strncpy(reply.value, current_file, sizeof(reply.value));
     send_control_packet(control_sock, (command_t *) &reply, (reply.value + strlen(reply.value) + 1) - (char *) &reply, 0, 0);
     break;
+  default: abort();
   }
 }
 
