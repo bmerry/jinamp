@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.14 2002/11/29 22:30:13 bruce Exp $
+ $Id: jinamp.c,v 1.15 2002/11/29 22:33:42 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -102,7 +102,7 @@ char *player;
 char *playlist_regex;
 char *exclude_regex;
 int delay = DEFAULT_DELAY;
-int count = 0, repeat = 0, do_shuffle = 1, counter;
+int count = 0, repeat = 0, counter;
 int kill_signal = DEFAULT_KILL_SIGNAL;
 int pause_signal = DEFAULT_PAUSE_SIGNAL;
 
@@ -292,10 +292,7 @@ void shuffle() {
     used[i] = 0;
   srand((unsigned int) time(NULL));
   for (i = 0; i < tot; i++) {
-    if (do_shuffle)
-      c = rand() % (tot - i) + 1;
-    else
-      c = 1;
+    c = rand() % (tot - i) + 1;
     for (j = 0; c; j++)
       if (!used[j]) c--;
     current.walker_map[i] = --j;
@@ -500,8 +497,6 @@ void show_help(const char *argument, void *data) {
   printf("\t-c, --count\tNumber of songs to play (0 for infinite loop)\n");
   printf("\t-r, --repeat\tNumber of times to repeat all (0 for infinite)\n");
   printf("\t-x, --exclude\tSpecify files to ignore (extended regex)\n");
-  printf("\t-n, --no-shuffle\tDo not shuffle the items\n");
-  printf("\t-s, --shuffle\tShuffles (overrides -n\n");
   printf("\t-L, --playlist\tSpecify extended regex for playlists\n");
   printf("\t-h, --help\tPrint this help text and exit\n");
   printf("\t-V, --version\tShow version information and exit\n");
@@ -618,8 +613,6 @@ int options(int argc, char *argv[]) {
   {'h', "help", NULL, no_argument, show_help, NULL},
   {'c', "count", "count", required_argument, count_callback, NULL},
   {'r', "repeat", "repeat", required_argument, repeat_callback, NULL},
-  {'n', "no-shuffle", "no-shuffle", no_argument, invert_callback, &do_shuffle},
-  {'s', "shuffle", "shuffle", no_argument, boolean_callback, &do_shuffle},
   {'x', "exclude", "exclude", required_argument, string_callback, &exclude_regex},
   {'L', "playlist", "playlist", required_argument, string_callback, &playlist_regex},
   {'V', "version", NULL, no_argument, show_version, NULL},

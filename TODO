@@ -1,6 +1,4 @@
 - call egrep on systems that don't support regex(3)
-- document --no-shuffle (including changelog)
-- fix --no-shuffle
 - fix undershuffling bug
 - finish jinamp-control
 - allow replacement of command line

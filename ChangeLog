@@ -4,6 +4,7 @@ jinamp 0.3.1
 * SIGHUP and "jinamp-ctl last" now cause jinamp to continue running
   until the player exits
 * Changed last reference to metaplay (the old name) from headers
+* Removed no-shuffle; it was bogus anyway.
 * Updated manual
 
 jinamp 0.3.0.6
