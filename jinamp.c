@@ -1,8 +1,8 @@
 /*
- $Id: jinamp.c,v 1.5 2002/01/07 04:27:39 bruce Exp $
+ $Id: jinamp.c,v 1.6 2002/05/16 17:40:35 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001  Bruce Merry.
+ Copyright (C) 2001, 2002  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -383,7 +383,7 @@ void show_help(const char *argument, void *data) {
 
 /* Shows the version and copyright. The parameters are just to make it work as a callback */
 void show_version(const char *argument, void *data) {
-  printf(PACKAGE " version " VERSION " Copyright 2001 Bruce Merry\n\n");
+  printf(PACKAGE " version " VERSION " Copyright 2001, 2002 Bruce Merry\n\n");
   printf("You may use, modify and distribute this program under the terms of the\n");
   printf("GNU GPL version 2 only. See the file COPYING for more information.\n");
   exit(0);
