@@ -1,9 +1,9 @@
-.TH JINAMP 1 "November 2001" JINAMP "User Manual"
+.TH JINAMP 1 "November 2002" JINAMP "User Manual"
 .SH NAME
 jinamp \- A multimedia meta-player
 .SH SYNOPSIS
-.B jinamp [-dpcrhxLV]
-.BI "set1 " "[!] " "set2 " "[!] " "set3 ..."
+.B jinamp [-dpcrnshxLV]
+.B "set1" "set2" "set3 ..."
 .SH DESCRIPTION
 .B jinamp
 is a command-line based meta-player, meaning that it invokes another
@@ -122,7 +122,7 @@ Kills the current player and starts the next file.
 .B SIGHUP
 Causes
 .B jinamp
-to exit but lets the current file finish.
+to quit after the end of the current file.
 .SH EXIT STATUS
 .B jinamp
 returns 1 for general errors, 2 for a failed
@@ -146,6 +146,10 @@ unusual characters, and a backslash acts as an escape character.
 .TP
 .I $HOME/.jinamp
 the configuration file
+.TP
+.I $HOME/.jinamp-socket
+the socket used for communication with
+.BR jinamp-ctl (1).
 .SH BUGS
 There is currently no way to set the signals sent to the player other
 than modifying the source code.
@@ -154,10 +158,14 @@ The exit codes are rather arbitrary.
 
 There should be a way to change the playlist once started, other than
 killing and restarting jinamp.
+
+On some systems there may be no security against another user
+manipulating jinamp via jinamp-ctl. This is not an issue on Linux.
 .SH AUTHOR
 .B jinamp
 is written and maintained by Bruce Merry <bmerry@sourceforge.net>.
 .SH "SEE ALSO"
 .BR ogg123 (1),
 .BR mpg123 (1),
-.BR regex (7)
+.BR regex (7),
+.BR jinamp-ctl (1)

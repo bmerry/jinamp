@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.10 2002/11/18 08:20:51 bruce Exp $
+ $Id: jinamp.c,v 1.11 2002/11/18 14:02:17 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -105,7 +105,7 @@ char *player;
 char *playlist_regex;
 char *exclude_regex;
 int delay = DEFAULT_DELAY;
-int count = 0, repeat = 0, do_shuffle = 1;
+int count = 0, repeat = 0, do_shuffle = 1, counter;
 int kill_signal = DEFAULT_KILL_SIGNAL;
 int pause_signal = DEFAULT_PAUSE_SIGNAL;
 
@@ -318,7 +318,7 @@ void playall() {
   char *cur;
   pid_t f;
 
-  int counter = tot * repeat + count;
+  counter = tot * repeat + count;
   for (i = 0;; i = (i + 1) % tot) {
     cur = order[i];
     f = fork();
@@ -347,10 +347,11 @@ void playall() {
 }
 
 void command_last() {
-  exit(0);
+  counter = 1;
 }
 
 void command_next() {
+  /* FIXME: wake it up first if necessary */
   if (playerpid) kill(playerpid, kill_signal);
 }
 
@@ -364,7 +365,7 @@ void command_continue() {
 
 void command_stop() {
   command_next();
-  command_last();
+  exit(0);
 }
 
 void dispatch_command(const command_t *cur) {
@@ -465,14 +466,16 @@ void setsigs() {
 /* Shows the help. The parameters are just to make it work as a callback */
 void show_help(const char *argument, void *data) {
   printf(PACKAGE ": play files and lists specified on the command line\n\n");
-  printf("Usage: " PACKAGE " [-p player] [-d delay] [-h] [-V] <set1> [!] <set2> [!] <set3>...\n");
-  printf("Each set is a file, a directory or a playlist.\n");
-  printf("Using ! negates the set (it may need to be escaped from the shell)\n\n");
+  printf("Usage: " PACKAGE " [-p player] [-d delay] <options> <files>...\n");
+  printf("Each set is a file, a directory or a playlist. The operators are\n");
+  printf("- (subtraction), ^ (intersection) and parentheses.\n\n");
   printf("\t-p, --player\tOverride the default player [" DEFAULT_PLAYER "]\n");
   printf("\t-d, --delay\tOverride the default inter-song delay [%d]\n", DEFAULT_DELAY);
   printf("\t-c, --count\tNumber of songs to play (0 for infinite loop)\n");
-  printf("\t-r, --repeat\tNumber of times to repeat entire command line (0 for infinite)\n");
+  printf("\t-r, --repeat\tNumber of times to repeat all (0 for infinite)\n");
   printf("\t-x, --exclude\tSpecify files to ignore (extended regex)\n");
+  printf("\t-n, --no-shuffle\tDo not shuffle the items\n");
+  printf("\t-s, --shuffle\tShuffles (overrides -n\n");
   printf("\t-L, --playlist\tSpecify extended regex for playlists\n");
   printf("\t-h, --help\tPrint this help text and exit\n");
   printf("\t-V, --version\tShow version information and exit\n");

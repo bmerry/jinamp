@@ -1,5 +1,5 @@
 /*
- $Id: jinamp-ctl.c,v 1.3 2002/11/18 08:20:51 bruce Exp $
+ $Id: jinamp-ctl.c,v 1.4 2002/11/18 14:02:17 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -26,6 +26,8 @@
 #if HAVE_CONFIG_H
 # include <config.h>
 #endif
+#include <stdio.h>
+#include <stdlib.h>
 #if HAVE_STRING_H
 # include <string.h>
 #endif
@@ -35,6 +37,17 @@
 
 #include <misc.h>
 #include <control.h>
+
+void show_usage() {
+  fprintf(stderr, "Usage: jinamp-ctl <command>\n\n");
+  fprintf(stderr, "Commands are:\n");
+  fprintf(stderr, "next\t\tskip remainer of current file\n");
+  fprintf(stderr, "stop\t\tquit immediately\n");
+  fprintf(stderr, "last\t\tquit at end of current file\n");
+  fprintf(stderr, "pause\t\tPause current file\n");
+  fprintf(stderr, "continue\tResume current file\n");
+  exit(1);
+}
 
 int main(int argc, char *argv[]) {
   int sock;
@@ -53,11 +66,10 @@ int main(int argc, char *argv[]) {
       msg.command = COMMAND_CONTINUE;
     else if (!strcmp(argv[1], "stop"))
       msg.command = COMMAND_STOP;
-    else ; /* FIXME */
+    else show_usage();
   }
-  else ; /* FIXME */
+  else show_usage();
 
-  /* FIXME: error checks */
   send_control_packet(sock, &msg, sizeof(&msg));
   close_control_socket(sock);
   return 0;

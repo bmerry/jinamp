@@ -1,0 +1,38 @@
+.TH JINAMP-CTL 1 "November 2002" JINAMP-CTL "User Manual"
+.SH NAME
+jinamp-ctl \- Client to manipulate jinamp
+.SH SYNOPSIS
+.BI jinamp-ctl command
+.SH DESCRIPTION
+.B jinamp-ctl
+is a command line client that allows the user to control the execution of
+.BI jinamp (1).
+It passes commands via a UNIX domain socket. Note that under some UNIX
+systems (not Linux) this may allow for any user to control
+.BR jinamp "."
+
+.SH OPTIONS
+The valid commands can be found by running
+.B jinamp-ctl
+with no command line options.
+
+.SH FILES
+.TP
+.I $HOME/.jinamp-socket
+the socket used to communicate with jinamp
+.SH BUGS
+If more than one copy of
+.B jinamp
+is running for a particular user, then
+.B jinamp-ctl
+can only communicate with one of them (most likely the one started
+last).
+
+Certain operating systems might not implement the security needed to
+prevent other users from controlling your invocation of
+.BR jinamp "."
+.SH AUTHOR
+.B jinamp-ctl
+is written and maintained by Bruce Merry <bmerry@sourceforge.net>.
+.SH "SEE ALSO"
+.BR jinamp-ctl (1)

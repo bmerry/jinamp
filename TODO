@@ -3,5 +3,4 @@
 - fix --no-shuffle
 - fix undershuffling bug
 - finish jinamp-control
-- don't cause immediate exist on command_last (set flag)
 - allow replacement of command line
