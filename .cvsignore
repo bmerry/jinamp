@@ -14,3 +14,6 @@ parse.c
 stamp-h
 stamp-h.in
 stamp-h1
+jinamp
+jinamp-ctl
+jinamp.1.gz
