@@ -1,5 +1,5 @@
 /*
- $Id: list.c,v 1.4 2002/05/16 17:40:35 bruce Exp $
+ $Id: list.c,v 1.5 2002/06/27 11:39:55 bruce Exp $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001, 2002  Bruce Merry.
@@ -66,7 +66,7 @@ void count_walker(char *item, void *data) {
 size_t list_count(list *l) {
   size_t tot = 0;
   list_walk(l, count_walker, (void *) &tot);
-  dprintf(DBG_LIST_OPS, "%p: counted: %d elements\n", (int) tot);
+  dprintf(DBG_LIST_OPS, "%p: counted: %d elements\n", l, (int) tot);
   return tot;
 }
 
@@ -134,7 +134,7 @@ void avl_print_tree(node *root, int offset) {
 /* checks that the AVL tree is valid */
 void avl_assert_valid(list *l) {
   char *first, *last;                       /* dummy */
-  dprintf(DBG_LIST_OPS, "%p: asserting AVL tree\n");
+  dprintf(DBG_LIST_OPS, "%p: asserting AVL tree\n", l);
   avl_assert_order(l->head, &first, &last);
   avl_assert_depth(l->head);
 }
@@ -297,7 +297,7 @@ int avl_remove(node **root, char *item, int strings) {
 int list_remove(list *l, char *item) {
   int r;
 
-  dprintf(DBG_LIST_OPS, "%p: removing %s\n", item);
+  dprintf(DBG_LIST_OPS, "%p: removing %s\n", l, item);
   if (l->head == NULL)
     r = 0;
   else
@@ -336,13 +336,13 @@ void avl_dispose(node *root, int strings) {
 }
 
 void list_dispose(list *l, int strings) {
-  dprintf(DBG_LIST_OPS, "%p: disposing (strings = %d)\n", strings);
+  dprintf(DBG_LIST_OPS, "%p: disposing (strings = %d)\n", l, strings);
   avl_dispose(l->head, strings);
   l->head = NULL;
 }
 
 void list_free(list *l, int strings) {
-  dprintf(DBG_LIST_OPS, "%p: freeing (strings = %d)\n", strings);
+  dprintf(DBG_LIST_OPS, "%p: freeing (strings = %d)\n", l, strings);
   list_dispose(l, strings);
   free(l);
 }
@@ -357,7 +357,7 @@ void avl_walk(node *root, void (*walker)(char *item, void *data), void *data) {
 }
 
 void list_walk(list *l, void (*walker)(char *item, void *data), void *data) {
-  dprintf(DBG_LIST_OPS, "%p: walker\n");
+  dprintf(DBG_LIST_OPS, "%p: walker\n", l);
   avl_walk(l->head, walker, data);
 }
 
@@ -388,7 +388,6 @@ void mask_walker(char *item, void *data) {
 void list_mask(list *list1, list *list2) {
   list *small, *big, *tmp;
   list *data[2];
-  node *old;
 
   dprintf(DBG_LIST_OPS, "masking %p with %p\n", list1, list2);
   tmp = list_alloc();
