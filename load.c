@@ -1,7 +1,7 @@
 /*
- $Id: load.c,v 1.5 2004/06/15 18:55:06 bruce Exp $
+ $Id: load.c,v 1.6 2005/04/25 15:16:31 bruce Exp $
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -64,141 +64,158 @@
 #include <list.h>
 #include <debug.h>
 
-void read_list(const char *listname, list *names, list *done,
-               void *playlist_handle, void *exclude_handle) {
-  FILE *fd;
-  char *buffer;
-  size_t size;
-  char *ptr;
-  size_t len;
+static void read_list(const char *listname, list *names, list *done,
+                      void *playlist_handle, void *exclude_handle,
+                      void *value)
+{
+    FILE *fd;
+    char *buffer;
+    size_t size;
+    char *ptr;
+    size_t len;
 
-  if (!(fd = fopen(listname, "r"))) pdie("read_list");
-  
-  size = 1024;
-  buffer = (char *) safe_malloc(sizeof(char) * size);
-  
-  while (!feof(fd)) {
-    ptr = buffer;
-    buffer[0] = '\0';
-    do {
-      if (!fgets(ptr, size, fd)) break;
-      len = strlen(ptr);
-      if (len == size - 1 && ptr[len - 1] != '\n') {
-	if (!realloc(buffer, sizeof(char) * size * 2)) pdie("read_list");
-	ptr += len;
-	size *= 2;
-      }
-      else break;
-    } while (1);
-    len = strlen(buffer);
-    if (!len) break;
-    while (len >= 1 && (buffer[len - 1] == '\r' || buffer[len - 1] == '\n'))
-      buffer[--len] = '\0';
+    if (!(fd = fopen(listname, "r"))) pdie("read_list");
 
-    read_object(buffer, names, done, playlist_handle, exclude_handle);
-  }
-  fclose(fd);
-  free(buffer);
+    size = 1024;
+    buffer = (char *) safe_malloc(sizeof(char) * size);
+
+    while (!feof(fd))
+    {
+        ptr = buffer;
+        buffer[0] = '\0';
+        do
+        {
+            if (!fgets(ptr, size, fd)) break;
+            len = strlen(ptr);
+            if (len == size - 1 && ptr[len - 1] != '\n')
+            {
+                if (!realloc(buffer, sizeof(char) * size * 2)) pdie("read_list");
+                ptr += len;
+                size *= 2;
+            }
+            else break;
+        } while (1);
+        len = strlen(buffer);
+        if (!len) break;
+        while (len >= 1 && (buffer[len - 1] == '\r' || buffer[len - 1] == '\n'))
+            buffer[--len] = '\0';
+
+        read_object(buffer, names, done, playlist_handle, exclude_handle, value);
+    }
+    fclose(fd);
+    free(buffer);
 }
 
-void read_directory(const char *dirname, list *names, list *done,
-                    void *playlist_handle, void *exclude_handle) {
-  DIR *directory;
-  struct dirent *entry;
-  char *buffer;
-  int bufsize;
+static void read_directory(const char *dirname, list *names, list *done,
+                           void *playlist_handle, void *exclude_handle,
+                           void *value)
+{
+    DIR *directory;
+    struct dirent *entry;
+    char *buffer;
+    size_t bufsize;
 
-  buffer = NULL;
-  bufsize = 0;
+    buffer = NULL;
+    bufsize = 0;
 
-  if ((directory = opendir(dirname)) == NULL)
-    pdie("Failed to open directory");
-  while ((entry = readdir(directory)) != NULL)
-    if (entry->d_name[0] != '.') {
-      if (buffer == NULL) {
-        bufsize = strlen(dirname) + strlen(entry->d_name) + 2;
-        buffer = (char *) safe_malloc(bufsize);
-      }
-      else if (strlen(dirname) + strlen(entry->d_name) + 2 > bufsize) {
-        free(buffer);
-        bufsize = strlen(dirname) + strlen(entry->d_name) + 2;
-        buffer = (char *) safe_malloc(bufsize);
-      }
-      strcpy(buffer, dirname);
-      if (dirname[0] != '\0' && dirname[strlen(dirname) - 1] != '/')
-        strcat(buffer, "/");
-      strcat(buffer, entry->d_name);
-      read_object(buffer, names, done, playlist_handle, exclude_handle);
-    }
-  if (buffer != NULL) free(buffer);
-  closedir(directory);
+    if ((directory = opendir(dirname)) == NULL)
+        pdie("Failed to open directory");
+    while ((entry = readdir(directory)) != NULL)
+        if (entry->d_name[0] != '.')
+        {
+            if (buffer == NULL)
+            {
+                bufsize = strlen(dirname) + strlen(entry->d_name) + 2;
+                buffer = (char *) safe_malloc(bufsize);
+            }
+            else if (strlen(dirname) + strlen(entry->d_name) + 2 > bufsize)
+            {
+                free(buffer);
+                bufsize = strlen(dirname) + strlen(entry->d_name) + 2;
+                buffer = (char *) safe_malloc(bufsize);
+            }
+            strcpy(buffer, dirname);
+            if (dirname[0] != '\0' && dirname[strlen(dirname) - 1] != '/')
+                strcat(buffer, "/");
+            strcat(buffer, entry->d_name);
+            read_object(buffer, names, done, playlist_handle, exclude_handle, value);
+        }
+    if (buffer != NULL) free(buffer);
+    closedir(directory);
 }
 
 void read_object(const char *file, list *names, list *done,
-                 void *playlist_handle, void *exclude_handle) {
-  struct stat buf;
-  int r;
-  char *canon;
-  int path_max;
+                 void *playlist_handle, void *exclude_handle, void *value)
+{
+    struct stat buf;
+    int r;
+    char *canon;
+    int path_max;
 
-  if (list_find(done, file)) return; /* already processed */
+    if (list_find(done, file)) return; /* already processed */
 
-  /* check that there is something there */
-  r = stat(file, &buf);
-  if (r == -1) {
-    printf("Warning: cannot access %s, skipping\n", file);
-    /* avoid further errors */
-    if (list_find(done, file)) return;
-    return;
-  }
-  if (access(file, R_OK)) {
-    printf("Warning: cannot read %s, skipping\n", file);
-    /* avoid further errors */
-    if (list_find(done, file)) return;
-    return;
-  }
+    /* check that there is something there */
+    r = stat(file, &buf);
+    if (r == -1)
+    {
+        printf("Warning: cannot access %s, skipping\n", file);
+        /* avoid further errors */
+        list_insert(done, file, NULL);
+        return;
+    }
+    if (access(file, R_OK))
+    {
+        printf("Warning: cannot read %s, skipping\n", file);
+        /* avoid further errors */
+        list_insert(done, file, NULL);
+        return;
+    }
 
-  /* canonicalise the pathname */
+    /* canonicalise the pathname */
 #ifdef PATH_MAX
-  path_max = PATH_MAX;
+    path_max = PATH_MAX;
 #else
 # if HAVE_PATHCONF
-  path_max = pathconf(file, _PC_PATH_MAX);
-  if (path_max <= 0)
-    path_max = 4096;
+    path_max = pathconf(file, _PC_PATH_MAX);
+    if (path_max <= 0)
+        path_max = 4096;
 # else
-  path_max = 4096;
+    path_max = 4096;
 # endif
 #endif
 #if HAVE_REALPATH
-  canon = (char *) safe_malloc(path_max);
-  realpath(file, canon);
+    canon = (char *) safe_malloc(path_max);
+    realpath(file, canon);
 #else
-  canon = (char *) safe_malloc(strlen(file) + 1);
-  strcpy(canon, file);
+    canon = duplicate(file);
 #endif
 
-  if (exclude_handle == NULL || regex_test(canon, exclude_handle) != 0) {
-    if (S_ISDIR(buf.st_mode)) {
-      list_insert(done, canon);
-      dprintf(DBG_LOAD_DONE, "Added %s to done list\n", canon);
-      read_directory(canon, names, done, playlist_handle, exclude_handle);
-    }
-    else if (S_ISREG(buf.st_mode)) {
-      if (playlist_handle && regex_test(canon, playlist_handle) == 0) {
-        list_insert(done, canon);
-        dprintf(DBG_LOAD_DONE, "Added %s to done list\n", canon);
-        read_list(canon, names, done, playlist_handle, exclude_handle);
-      }
-      else {
-        list_insert(names, canon);
-        dprintf(DBG_LOAD_SHOW, "%p: Added %s\n", (void *) names, canon);
-      }
+    if (exclude_handle == NULL || regex_test(canon, exclude_handle) != 0)
+    {
+        if (S_ISDIR(buf.st_mode))
+        {
+            list_insert(done, canon, NULL);
+            dprintf(DBG_LOAD_DONE, "Added %s to done list\n", canon);
+            read_directory(canon, names, done, playlist_handle, exclude_handle, value);
+        }
+        else if (S_ISREG(buf.st_mode))
+        {
+            if (playlist_handle && regex_test(canon, playlist_handle) == 0)
+            {
+                list_insert(done, canon, NULL);
+                dprintf(DBG_LOAD_DONE, "Added %s to done list\n", canon);
+                read_list(canon, names, done, playlist_handle, exclude_handle, value);
+            }
+            else
+            {
+                list_insert(names, canon, value);
+                dprintf(DBG_LOAD_SHOW, "%p: Added %s\n", (void *) names, canon);
+            }
+        }
+        else
+            printf("Warning: %s is not a regular file or directory, skipping\n", canon);
     }
     else
-      printf("Warning: %s is not a regular file or directory, skipping\n", canon);
-  }
-  else
-    dprintf(DBG_LOAD_REGEX, "Excluded %s\n", canon);
-  free(canon);
+        dprintf(DBG_LOAD_REGEX, "Excluded %s\n", canon);
+    free(canon);
 }

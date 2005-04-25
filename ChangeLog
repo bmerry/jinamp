@@ -1,3 +1,8 @@
+* Brought back no-shuffle from the dead
+* Fixed memory-leak in 'jinamp-ctl replace' handling
+* Changed the code indenting
+* Sprinkled on some 'static' and 'const' keywords
+
 jinamp 1.0
 ----------
 * Corrected email address

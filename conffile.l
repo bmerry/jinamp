@@ -1,9 +1,9 @@
 %{
 /*
- $Id: conffile.l,v 1.5 2004/06/15 18:55:06 bruce Exp $
- 
+ $Id: conffile.l,v 1.6 2005/04/25 15:16:31 bruce Exp $
+
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -45,29 +45,33 @@
 char *buffer = NULL;
 int bufsize, buflen;
 
-void resetbuffer() {
-  int i;
-  if (!buffer) {
-    buffer = safe_malloc(INITIAL_SIZE);
-    bufsize = INITIAL_SIZE;
-  }
-  for (i = 0; i < bufsize; i++)
-    buffer[i] = 0;
-  buflen = 1;
+void resetbuffer()
+{
+    int i;
+    if (!buffer)
+    {
+        buffer = safe_malloc(INITIAL_SIZE);
+        bufsize = INITIAL_SIZE;
+    }
+    for (i = 0; i < bufsize; i++)
+        buffer[i] = 0;
+    buflen = 1;
 }
 
-void append(char c) {
-  char *old;
+void append(char c)
+{
+    char *old;
 
-  if (buflen == bufsize) {
-    old = buffer;
-    bufsize *= 2;
-    buffer = safe_malloc(bufsize);
-    memset(buffer + buflen, 0, bufsize - buflen);
-    memcpy(buffer, old, buflen);
-    free(old);
-  }
-  buffer[buflen++ - 1] = c;
+    if (buflen == bufsize)
+    {
+        old = buffer;
+        bufsize *= 2;
+        buffer = safe_malloc(bufsize);
+        memset(buffer + buflen, 0, bufsize - buflen);
+        memcpy(buffer, old, buflen);
+        free(old);
+    }
+    buffer[buflen++ - 1] = c;
 }
 
 %}
@@ -95,6 +99,7 @@ TEXT	[A-Za-z0-9./_-]+
 
 %%
 
-int yywrap() {
-  return 1;
+int yywrap() 
+{
+    return 1;
 }

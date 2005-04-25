@@ -1,8 +1,8 @@
 /*
- $Id: control.h,v 1.9 2004/06/16 18:22:32 bruce Exp $
+ $Id: control.h,v 1.10 2005/04/25 15:16:31 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -38,34 +38,38 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-typedef enum {
-  COMMAND_WAKE,
-  COMMAND_NEXT,
-  COMMAND_LAST,
-  COMMAND_PAUSE,
-  COMMAND_CONTINUE,
-  COMMAND_STOP,
-  COMMAND_REPLACE,
-  COMMAND_QUERY,
-  REPLY_QUERY
+typedef enum
+{
+    COMMAND_WAKE,
+    COMMAND_NEXT,
+    COMMAND_LAST,
+    COMMAND_PAUSE,
+    COMMAND_CONTINUE,
+    COMMAND_STOP,
+    COMMAND_REPLACE,
+    COMMAND_QUERY,
+    REPLY_QUERY
 } command_type_t;
 
 /* any payload appears in an extended form of the data structure, in the same
  * way sockaddr_t is extended for various address formats.
  */
-typedef struct {
-  command_type_t command;
+typedef struct
+{
+    command_type_t command;
 } command_t;
 
-typedef struct {
-  command_type_t command;
-  int argc;
-  char argv[4000]; /* leaves lots of room in case padding happens */
+typedef struct
+{
+    command_type_t command;
+    int argc;
+    char argv[4000]; /* leaves lots of room in case padding happens */
 } command_list_t;
 
-typedef struct {
-  command_type_t command;
-  char value[4000];
+typedef struct
+{
+    command_type_t command;
+    char value[4000];
 } command_string_t;
 
 /* returns the socket ID on success, -1 on failure. */

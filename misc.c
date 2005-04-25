@@ -1,8 +1,8 @@
 /*
- $Id: misc.c,v 1.7 2004/06/15 18:55:06 bruce Exp $
+ $Id: misc.c,v 1.8 2005/04/25 15:16:31 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -48,67 +48,77 @@
 # include <regex.h>
 #endif
 
-void die(const char *msg, ...) {
-  va_list ap;
-  va_start(ap, msg);
+void die(const char *msg, ...)
+{
+    va_list ap;
+    va_start(ap, msg);
 #if HAVE_VPRINTF
-  vfprintf(stderr, msg, ap);
+    vfprintf(stderr, msg, ap);
 #else
-  fprintf(stderr, "%s", msg);
+    fprintf(stderr, "%s", msg);
 #endif
-  va_end(ap);
-  fprintf(stderr, "\n");
-  exit(1);
+    va_end(ap);
+    fprintf(stderr, "\n");
+    exit(1);
 }
 
-void pdie(const char *msg) {
-  perror(msg);
-  exit(1);
+void pdie(const char *msg)
+{
+    perror(msg);
+    exit(1);
 }
 
-void *safe_malloc(size_t size) {
-  void *tmp = malloc(size);
-  if (!tmp)
-    pdie("Allocation failed: ");
-  return tmp;
+void *safe_malloc(size_t size)
+{
+    void *tmp = malloc(size);
+    if (!tmp)
+        pdie("Allocation failed: ");
+    return tmp;
 }
 
-char *duplicate(const char *str) {
-  char *tmp;
+char *duplicate(const char *str)
+{
+    char *tmp;
 
-  tmp = (char *) safe_malloc(strlen(str) + 1);
-  strcpy(tmp, str);
-  return tmp;
+    tmp = (char *) safe_malloc(strlen(str) + 1);
+    strcpy(tmp, str);
+    return tmp;
 }
 
-char *my_strncpy(char *dst, const char *src, size_t n) {
-  if (n == 0) return dst;
-  dst[n - 1] = '\0';
-  return strncpy(dst, src, n - 1);
+char *my_strncpy(char *dst, const char *src, size_t n)
+{
+    if (n == 0) return dst;
+    dst[n - 1] = '\0';
+    return strncpy(dst, src, n - 1);
 }
 
-void *regex_init(const char *regex) {
-  regex_t *preg;
+void *regex_init(const char *regex)
+{
+    regex_t *preg;
 
-  preg = (regex_t *) safe_malloc(sizeof(regex_t));
-  if (regcomp(preg, regex, REG_EXTENDED | REG_NOSUB) != 0) {
-    free(preg);
-    return NULL;
-  }
-  else return preg;
+    preg = (regex_t *) safe_malloc(sizeof(regex_t));
+    if (regcomp(preg, regex, REG_EXTENDED | REG_NOSUB) != 0)
+    {
+        free(preg);
+        return NULL;
+    }
+    else return preg;
 }
 
-int regex_test(const char *string, void *handle) {
+int regex_test(const char *string, void *handle)
+{
 #if HAVE_REGCOMP
-  return (regexec((regex_t *) handle, string, 0, NULL, 0) != 0);
+    return (regexec((regex_t *) handle, string, 0, NULL, 0) != 0);
 #else
 # error "jinamp does not yet support calling egrep"
 #endif
 }
 
-void regex_done(void *handle) {
-  if (handle != NULL) {
-    regfree((regex_t *) handle);
-    free(handle);
-  }
+void regex_done(void *handle)
+{
+    if (handle != NULL)
+    {
+        regfree((regex_t *) handle);
+        free(handle);
+    }
 }

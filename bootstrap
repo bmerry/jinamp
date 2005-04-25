@@ -1,5 +1,0 @@
-aclocal
-autoheader
-automake
-autoconf
-./configure

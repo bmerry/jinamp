@@ -1,8 +1,8 @@
 /*
- $Id: debug.c,v 1.6 2004/06/15 18:55:06 bruce Exp $
+ $Id: debug.c,v 1.7 2005/04/25 15:16:31 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -34,23 +34,26 @@
 
 unsigned int debug_flags = DBG_MISC;
 
-void dprintf(unsigned int mask, char *fmt, ...) {
-  va_list args;
+void dprintf(unsigned int mask, char *fmt, ...)
+{
+    va_list args;
 
-  va_start(args, fmt);
-  if (debug_flags & mask) {
+    va_start(args, fmt);
+    if (debug_flags & mask)
+    {
 #if HAVE_VPRINTF
-    vfprintf(stderr, fmt, args);
+        vfprintf(stderr, fmt, args);
 #else
-    fprintf(stderr, "%s", fmt);
+        fprintf(stderr, "%s", fmt);
 #endif
-  }
-  va_end(args);
+    }
+    va_end(args);
 }
 
 #else /* DEBUG */
 
-void dprintf(unsigned int mask, char *fmt, ...) {
+void dprintf(unsigned int mask, char *fmt, ...)
+{
 }
 
 #endif /* DEBUG */

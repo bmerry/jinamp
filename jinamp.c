@@ -1,8 +1,8 @@
 /*
- $Id: jinamp.c,v 1.20 2004/06/16 18:22:32 bruce Exp $
+ $Id: jinamp.c,v 1.21 2005/04/25 15:16:31 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -97,34 +97,39 @@
 #endif
 
 /* dynamic data */
-list *songs;
-char **order;
-int tot;
-int control_sock = -1;
-const char *current_file;
+static pid_t playerpid = 0;
+static list *songs;
+static char **order;
+static size_t total_songs;
+static int control_sock = -1;
+static const char *current_file;
+static long counter;
 
 /* config data */
-char *player;
-char *playlist_regex;
-char *exclude_regex;
-int delay = DEFAULT_DELAY;
-int count = 0, repeat = 0, counter;
-int kill_signal = DEFAULT_KILL_SIGNAL;
-int pause_signal = DEFAULT_PAUSE_SIGNAL;
+static char *player;
+static char *playlist_regex;
+static char *exclude_regex;
+static long delay = DEFAULT_DELAY;
+static long count = 0, repeat = 0, counter;
+static int shuffle_flag = 1;
+static int kill_signal = DEFAULT_KILL_SIGNAL;
+static int pause_signal = DEFAULT_PAUSE_SIGNAL;
 
 /* signal handling stuff */
-sigset_t blocked, unblocked;
-volatile int child_died;
+static sigset_t blocked, unblocked;
+static volatile int child_died;
 
-void cleanup() {
-  signal(SIGTERM, SIG_DFL);
-  signal(SIGQUIT, SIG_DFL);
-  signal(SIGHUP, SIG_DFL);
+static void cleanup(void)
+{
+    signal(SIGTERM, SIG_DFL);
+    signal(SIGQUIT, SIG_DFL);
+    signal(SIGHUP, SIG_DFL);
 #if USING_JINAMP_CTL
-  if (control_sock != -1) {
-    close_control_socket(control_sock, 1);
-    control_sock = -1;
-  }
+    if (control_sock != -1)
+    {
+        close_control_socket(control_sock, 1);
+        control_sock = -1;
+    }
 #endif
 }
 
@@ -141,245 +146,327 @@ void cleanup() {
  * The index of the parameter AFTER the last one swallowed is returned in *end.
  * NULL is returned if the expression is invalid.
  */
-list *read_argv(int argc, const char * const argv[], int first, int level, int *end,
-               void *playlist_handle, void *exclude_handle) {
-  int i;
-  list *current, *next, *done;
-  int op;  /* 0 = union, 1 = subtract, 2 = intersect */
+static list *read_argv(int argc, const char * const argv[], int first,
+                       int level, int *end,
+                       void *playlist_handle, void *exclude_handle)
+{
+    int i;
+    list *current, *next, *done;
+    int op;  /* 0 = union, 1 = subtract, 2 = intersect */
 
-  current = NULL;
-  op = 0;
-  for (i = first; i < argc; i++) {
-    next = NULL;
-    if (argv[i][0] != '\0' && argv[i][1] == '\0') {
-      switch (argv[i][0]) {
-      case '(':
-        next = read_argv(argc, argv, i + 1, 1, &i, playlist_handle, exclude_handle);
-        i--; /* since we will do i++ in a minute */
-        if (!next) goto bailout;
-        break;
-      case '!':
-      case '-':
-        if (current == NULL) return NULL;    /* can't subtract from nothing */
-        if (op != 0) goto bailout;           /* were expecting a list */
-        if (level == 2) {
-          *end = i;
-          return current;
+    current = NULL;
+    op = 0;
+    for (i = first; i < argc; i++)
+    {
+        next = NULL;
+        if (argv[i][0] != '\0' && argv[i][1] == '\0')
+        {
+            switch (argv[i][0])
+            {
+            case '(':
+                next = read_argv(argc, argv, i + 1, 1, &i, playlist_handle, exclude_handle);
+                i--; /* since we will do i++ in a minute */
+                if (!next) goto bailout;
+                break;
+            case '!':
+            case '-':
+                if (current == NULL) return NULL;    /* can't subtract from nothing */
+                if (op != 0) goto bailout;           /* were expecting a list */
+                if (level == 2)
+                {
+                    *end = i;
+                    return current;
+                }
+                op = 1;
+                continue;   /* this breaks out of the loop, not the switch */
+            case '^':
+                if (current == NULL) return NULL;    /* ^ is a binary op */
+                if (op != 0) goto bailout;
+                op = 2;
+                continue;
+            case ')':
+                if (level == 0) goto bailout;
+                if (op != 0) goto bailout;
+                if (current == NULL) current = list_alloc(0); /* handle () case */
+                *end = i + ((level == 2) ? 0 : 1);
+                return current;
+            }
         }
-        op = 1;
-        continue;   /* this breaks out of the loop, not the switch */
-      case '^':
-        if (current == NULL) return NULL;    /* ^ is a binary op */
-        if (op != 0) goto bailout;
-        op = 2;
-        continue;
-      case ')':
-        if (level == 0) goto bailout;
-        if (op != 0) goto bailout;
-        if (current == NULL) current = list_alloc(); /* handle () case */
-        *end = i + ((level == 2) ? 0 : 1);
-        return current;
-      }
+        if (!next)
+        {
+            /* we only get here if nothing has been processed yet */
+            if (level == 2 && op == 0 && current)         /* concatenation in level 2 */
+            {
+                *end = i;
+                return current;
+            }
+            if (level < 2)
+            {
+                next = read_argv(argc, argv, i, 2, &i, playlist_handle, exclude_handle);
+                if (!next) goto bailout;
+                i--;
+            }
+            else
+            {
+                done = list_alloc(0);
+                next = list_alloc(0);
+                read_object(argv[i], next, done, playlist_handle, exclude_handle,
+                            ((char *) NULL) + i);
+                list_free(done);
+            }
+        }
+        switch (op)
+        {
+        case 0:
+            if (current == NULL) current = next;
+            else
+            {
+                list_merge(current, next);
+                list_free(next);
+            }
+            break;
+        case 1:
+            list_subtract(current, next);
+            list_free(next);
+            op = 0;
+            break;
+        case 2:
+            list_mask(current, next);
+            list_free(next);
+            op = 0;
+            break;
+        }
     }
-    if (!next) {
-      /* we only get here if nothing has been processed yet */
-      if (level == 2 && op == 0 && current) {       /* concatenation in level 2 */
-        *end = i;
-        return current;
-      }
-      if (level < 2) {
-        next = read_argv(argc, argv, i, 2, &i, playlist_handle, exclude_handle);
-        if (!next) goto bailout;
-        i--;
-      }
-      else {
-        done = list_alloc();
-        next = list_alloc();
-        read_object(argv[i], next, done, playlist_handle, exclude_handle);
-        list_free(done, 1);
-      }
-    }
-    switch (op) {
-    case 0:
-      if (current == NULL) current = next;
-      else {
-        list_merge(current, next);
-        list_free(next, 1);
-      }
-      break;
-    case 1:
-      list_subtract(current, next);
-      list_free(next, 1);
-      op = 0;
-      break;
-    case 2:
-      list_mask(current, next);
-      list_free(next, 1);
-      op = 0;
-      break;
-    }
-  }
-  if (op != 0) goto bailout;
-  if (level == 1) goto bailout;  /* should be terminated by ')' */
-  *end = i;
-  return current;
+    if (op != 0) goto bailout;
+    if (level == 1) goto bailout;  /* should be terminated by ')' */
+    *end = i;
+    return current;
 
-  /* Ack! No! A goto! Bad Bruce. Ok this is necessary to prevent me writing the
-   * same code 7 or 8 times, and can't be put in a procedure because it has a
-   * return. */
+    /* Ack! No! A goto! Bad Bruce. Ok this is necessary to prevent me writing
+     * the same code 7 or 8 times, and can't be put in a procedure because it
+     * has a return. */
 bailout:
-  if (current) list_free(current, 1);
-  return NULL;
+    if (current) list_free(current);
+    return NULL;
 }
 
 /* Take the command line options and expand to get playlist
  * `first' is the first argument to process (to work with getopt)
  */
-void populate(int argc, const char * const argv[], int first) {
-  void *playlist_handle, *exclude_handle;
+static void populate(int argc, const char * const argv[], int first)
+{
+    void *playlist_handle, *exclude_handle;
 
-  if (playlist_regex && *playlist_regex) {
-    playlist_handle = regex_init(playlist_regex);
-    if (playlist_handle == NULL)
-      die("Invalid playlist regex: \"%s\"", playlist_regex);
-  }
-  else playlist_handle = NULL;
-  if (exclude_regex && *exclude_regex) {
-    exclude_handle = regex_init(exclude_regex);
-    if (exclude_handle == NULL)
-      die("Invalid exclude regex: \"%s\"", exclude_regex);
-  }
-  else exclude_handle = NULL;
+    if (playlist_regex && *playlist_regex)
+    {
+        playlist_handle = regex_init(playlist_regex);
+        if (playlist_handle == NULL)
+            die("Invalid playlist regex: \"%s\"", playlist_regex);
+    }
+    else playlist_handle = NULL;
+    if (exclude_regex && *exclude_regex)
+    {
+        exclude_handle = regex_init(exclude_regex);
+        if (exclude_handle == NULL)
+            die("Invalid exclude regex: \"%s\"", exclude_regex);
+    }
+    else exclude_handle = NULL;
 
-  /* we overwrite first simply because it is no longer needed */
-  songs = read_argv(argc, argv, first, 0, &first, playlist_handle, exclude_handle);
+    /* we overwrite first simply because it is no longer needed */
+    songs = read_argv(argc, argv, first, 0, &first, playlist_handle, exclude_handle);
 
-  regex_done(playlist_handle);
-  regex_done(exclude_handle);
+    regex_done(playlist_handle);
+    regex_done(exclude_handle);
 
-  if (!songs) {
-    fprintf(stderr, "The expression was invalid (see the man page)\n");
-    cleanup();
-    exit(1);
-  }
+    if (!songs)
+    {
+        fprintf(stderr, "The expression was invalid (see the man page)\n");
+        cleanup();
+        exit(1);
+    }
 
-  if (list_count(songs) == 0) {
-    fprintf(stderr, "No songs to play!\n");
-    cleanup();
-    exit(1);
-  }
+    if (list_count(songs) == 0)
+    {
+        fprintf(stderr, "No songs to play!\n");
+        cleanup();
+        exit(1);
+    }
 }
 
 /* helper structure for use with the walker */
-struct walker_data {
-  int walker_pos;
-  int *walker_map;
-};
+typedef struct
+{
+    size_t walker_pos;
+    size_t *walker_map;
+} shuffle_walker_data;
 
 /* takes the data from the list and puts it in the array */
-void shuffle_walker(char *item, void *data) {
-  struct walker_data *cast_data = (struct walker_data *) data;
+static void shuffle_walker(const char *item, void *value, void *data)
+{
+    shuffle_walker_data *d = (shuffle_walker_data *) data;
 
-  dprintf(DBG_LIST_WALKER, "Walker: %s\n", item);
-  order[cast_data->walker_map[(cast_data->walker_pos)++]] = item;
+    dprintf(DBG_LIST_WALKER, "Walker: %s\n", item);
+    order[d->walker_map[d->walker_pos++]] = duplicate(item);
 }
 
 /* reorder the list and place in an array */
-void shuffle() {
-  int *used;
-  int i, j, c;
-  struct walker_data current;
+static void shuffle(void)
+{
+    int *used;
+    size_t i, j, c;
+    shuffle_walker_data data;
 
-  /* calculate random order */
-  tot = list_count(songs);
-  dprintf(DBG_MISC, "Count: %d\n", tot);
-  current.walker_map = (int *) safe_malloc(sizeof(int) * tot);
-  used = (int *) safe_malloc(sizeof(int) * tot);
-  for (i = 0; i < tot; i++)
-    used[i] = 0;
-  srand((unsigned int) time(NULL));
-  for (i = 0; i < tot; i++) {
-    c = rand() % (tot - i) + 1;
-    for (j = 0; c; j++)
-      if (!used[j]) c--;
-    current.walker_map[i] = --j;
-    used[j] = 1;
-  }
+    /* calculate random order */
+    total_songs = list_count(songs);
+    dprintf(DBG_MISC, "Count: %ld\n", (long) total_songs);
+    data.walker_map = (size_t *) safe_malloc(sizeof(size_t) * total_songs);
+    used = (int *) safe_malloc(sizeof(int) * total_songs);
+    for (i = 0; i < total_songs; i++)
+        used[i] = 0;
+    srand((unsigned int) time(NULL));
+    for (i = 0; i < total_songs; i++)
+    {
+        c = rand() % (total_songs - i) + 1;
+        for (j = 0; c; j++)
+            if (!used[j]) c--;
+        data.walker_map[i] = --j;
+        used[j] = 1;
+    }
 
-  /* extract into array */
-  order = (char **) safe_malloc(sizeof(char *) * tot);
-  current.walker_pos = 0;
-  list_walk(songs, shuffle_walker, (void *) &current);
+    /* extract into array */
+    order = (char **) safe_malloc(sizeof(char *) * total_songs);
+    data.walker_pos = 0;
+    list_walk(songs, shuffle_walker, (void *) &data);
 
-  /* free stuff that is no longer needed */
-  free(current.walker_map);
-  free(used);
-  list_free(songs, 0);
+    /* free stuff that is no longer needed */
+    free(data.walker_map);
+    free(used);
+    list_free(songs);
 }
 
-void process_commands();
+typedef struct
+{
+    char *name;
+    void *tag;
+} tagged_song;
 
-/* this has to be global for the signal handlers to get at it */
-pid_t playerpid = 0;
+typedef struct
+{
+    size_t pos;
+    tagged_song *songs;
+} noshuffle_walker_data;
+
+static void noshuffle_walker(const char *item, void *value, void *data)
+{
+    noshuffle_walker_data *d = (noshuffle_walker_data *) data;
+    d->songs[d->pos].name = duplicate(item);
+    d->songs[d->pos].tag = value;
+    d->pos++;
+}
+
+static int compare_tagged_songs(const void *a, const void *b)
+{
+    const tagged_song *A = (const tagged_song *) a;
+    const tagged_song *B = (const tagged_song *) b;
+    if (A->tag < B->tag) return -1;
+    if (A->tag > B->tag) return 1;
+    return strcmp(A->name, B->name);
+}
+
+static void noshuffle(void)
+{
+    noshuffle_walker_data data;
+    size_t i;
+
+    total_songs = list_count(songs);
+    dprintf(DBG_MISC, "Count: %ld\n", (long) total_songs);
+
+    /* extract into array */
+    data.songs = (tagged_song*) safe_malloc(sizeof(tagged_song) * total_songs);
+    data.pos = 0;
+    list_walk(songs, noshuffle_walker, (void *) &data);
+
+    /* sort array by tags, then strip tags */
+    qsort(data.songs, total_songs, sizeof(tagged_song), compare_tagged_songs);
+    order = (char **) safe_malloc(sizeof(char *) * total_songs);
+    for (i = 0; i < total_songs; i++)
+        order[i] = data.songs[i].name;
+
+    /* free stuff that is no longer needed */
+    free(data.songs);
+    list_free(songs);
+}
+
+static void process_commands(void);
 
 /* the main play loop */
-void playall() {
-  int i;
-  pid_t f;
+static void playall(void)
+{
+    int i;
+    pid_t f;
 
-  counter = tot * repeat + count;
-  for (i = 0;; i = (i + 1) % tot) {
-    current_file = order[i];
-    f = fork();
-    switch (f) {
-    case -1: perror("jinamp: fork"); cleanup(); exit(2); break;
-    case 0:
-      dprintf(DBG_MISC, "exec'ing %s\n", player);
+    counter = total_songs * repeat + count;
+    for (i = 0;; i = (i + 1) % total_songs)
+    {
+        current_file = order[i];
+        f = fork();
+        switch (f)
+        {
+        case -1: perror("jinamp: fork"); cleanup(); exit(2); break;
+        case 0:
+            dprintf(DBG_MISC, "exec'ing %s\n", player);
 #if DEBUG
-      close(0);
-      close(1);
-      close(2);
-      setsid();
+            close(0);
+            close(1);
+            close(2);
+            setsid();
 #endif
-      execl(player, player, current_file, NULL);
-      cleanup();
-      exit(2);
-      break;
-    default:
-      playerpid = f;
-      process_commands();
-      sleep(delay);
+            execl(player, player, current_file, NULL);
+            cleanup();
+            exit(2);
+            break;
+        default:
+            playerpid = f;
+            process_commands();
+            sleep(delay);
+        }
+        if (counter > 0)
+        {
+            counter--;
+            if (counter == 0) break;
+        }
     }
-    if (counter > 0) {
-      counter--;
-      if (counter == 0) break;
+}
+
+static void command_last(void)
+{
+    counter = 1;
+}
+
+static void command_next(void)
+{
+    if (playerpid)
+    {
+        kill(playerpid, kill_signal);
+        kill(playerpid, SIGCONT); /* in case it was paused */
     }
-  }
 }
 
-void command_last() {
-  counter = 1;
+static void command_pause(void)
+{
+    if (playerpid) kill(playerpid, pause_signal);
 }
 
-void command_next() {
-  if (playerpid) {
-    kill(playerpid, kill_signal);
-    kill(playerpid, SIGCONT); /* in case it was paused */
-  }
+static void command_continue(void)
+{
+    if (playerpid) kill(playerpid, SIGCONT);
 }
 
-void command_pause() {
-  if (playerpid) kill(playerpid, pause_signal);
-}
-
-void command_continue() {
-  if (playerpid) kill(playerpid, SIGCONT);
-}
-
-void command_stop() {
-  command_next();
-  cleanup();
-  exit(0);
+static void command_stop(void)
+{
+    command_next();
+    cleanup();
+    exit(0);
 }
 
 #if USING_JINAMP_CTL
@@ -388,388 +475,440 @@ void command_stop() {
  * returning the number of parameters. This may be less than cmd->argc if the array is
  * exhausted first. Return -1 on error.
  */
-int unpack(const command_list_t *cmd, const char ***argv) {
-  int i;
-  const char *cur, *nxt;
+static int unpack(const command_list_t *cmd, const char ***argv)
+{
+    int i;
+    const char *cur, *nxt;
 
-  cur = cmd->argv;
-  *argv = malloc(cmd->argc * sizeof(char *));
-  if (*argv == NULL) {
-    dprintf(DBG_CONTROL_ERRORS, "Out of memory in unpack\n");
-    return -1;
-  }
-  for (i = 0; i < cmd->argc; i++) {
-    if (cur >= cmd->argv + sizeof(cmd->argv)) break;
-    nxt = cur;
-    while (nxt < cmd->argv + sizeof(cmd->argv) && *nxt != '\0')
-      nxt++;
-    if (nxt >= cmd->argv + sizeof(cmd->argv)) break;
-    (*argv)[i] = cur;
-    dprintf(DBG_CONTROL_DATA, "unpack %d: %s\n", i, cur);
-    cur = nxt;
-  }
-  return i;
+    cur = cmd->argv;
+    *argv = malloc(cmd->argc * sizeof(char *));
+    if (*argv == NULL)
+    {
+        dprintf(DBG_CONTROL_ERRORS, "Out of memory in unpack\n");
+        return -1;
+    }
+    for (i = 0; i < cmd->argc; i++)
+    {
+        if (cur >= cmd->argv + sizeof(cmd->argv)) break;
+        nxt = cur;
+        while (nxt < cmd->argv + sizeof(cmd->argv) && *nxt != '\0')
+            nxt++;
+        if (nxt >= cmd->argv + sizeof(cmd->argv)) break;
+        (*argv)[i] = cur;
+        dprintf(DBG_CONTROL_DATA, "unpack %d: %s\n", i, cur);
+        cur = nxt;
+    }
+    return i;
 }
 
-void dispatch_command(const command_t *cur) {
-  int argc;
-  const char **argv;
-  command_string_t reply;
+static void dispatch_command(const command_t *cur)
+{
+    int argc;
+    const char **argv;
+    command_string_t reply;
 
-  dprintf(DBG_CONTROL_DATA, "Got command %d\n", cur->command);
-  switch (cur->command) {
-  case COMMAND_WAKE: break; /* used internally by SIGCHLD handler to wake us up */
-  case COMMAND_LAST: command_last(); break;
-  case COMMAND_NEXT: command_next(); break;
-  case COMMAND_PAUSE: command_pause(); break;
-  case COMMAND_CONTINUE: command_continue(); break;
-  case COMMAND_STOP: command_stop(); break;
-  case COMMAND_REPLACE:
-    argc = unpack((const command_list_t *) cur, &argv);
-    if (argc != -1) {
-      populate(argc, argv, 0);
-      shuffle();
+    dprintf(DBG_CONTROL_DATA, "Got command %d\n", cur->command);
+    switch (cur->command)
+    {
+    case COMMAND_WAKE: break; /* used internally by SIGCHLD handler to wake us up */
+    case COMMAND_LAST: command_last(); break;
+    case COMMAND_NEXT: command_next(); break;
+    case COMMAND_PAUSE: command_pause(); break;
+    case COMMAND_CONTINUE: command_continue(); break;
+    case COMMAND_STOP: command_stop(); break;
+    case COMMAND_REPLACE:
+        argc = unpack((const command_list_t *) cur, &argv);
+        if (argc != -1)
+        {
+            populate(argc, argv, 0);
+            free(order);
+            if (shuffle_flag)
+                shuffle();
+            else
+                noshuffle();
+        }
+        break;
+    case COMMAND_QUERY:
+        reply.command = REPLY_QUERY;
+        my_strncpy(reply.value, current_file, sizeof(reply.value));
+        send_control_packet(control_sock, (command_t *) &reply, (reply.value + strlen(reply.value) + 1) - (char *) &reply, 0, 0);
+        break;
+    default: abort();
     }
-    break;
-  case COMMAND_QUERY:
-    reply.command = REPLY_QUERY;
-    my_strncpy(reply.value, current_file, sizeof(reply.value));
-    send_control_packet(control_sock, (command_t *) &reply, (reply.value + strlen(reply.value) + 1) - (char *) &reply, 0, 0);
-    break;
-  default: abort();
-  }
 }
 #endif /* USING_JINAMP_CTL */
 
-void process_commands() {
+static void process_commands(void)
+{
 #if USING_JINAMP_CTL
-  command_t *cur;
-  int count;
-  int broken;
+    command_t *cur;
+    int count;
+    int broken;
 #endif
 
-  while (1) {
+    while (1)
+    {
 #if USING_JINAMP_CTL
-    cur = (command_t *) malloc(sizeof(command_list_t)); /* FIXME: handle arbitrary sizes */
+        cur = (command_t *) malloc(sizeof(command_list_t)); /* FIXME: handle arbitrary sizes */
 #endif
-    if (control_sock == -1) {
-      count = -1;
-      sigsuspend(&unblocked);
-    }
-    else {
-      sigprocmask(SIG_SETMASK, &unblocked, NULL);
+        if (control_sock == -1)
+        {
+            count = -1;
+            sigsuspend(&unblocked);
+        }
+        else
+        {
+            sigprocmask(SIG_SETMASK, &unblocked, NULL);
 #if USING_JINAMP_CTL
-      count = receive_control_packet(control_sock, cur, sizeof(command_list_t), 1, 1); /* FIXME: arb sizes */
-      broken = 0;
-      if (count == -1 && errno != EINTR) broken = 1;
+            count = receive_control_packet(control_sock, cur, sizeof(command_list_t), 1, 1); /* FIXME: arb sizes */
+            broken = 0;
+            if (count == -1 && errno != EINTR) broken = 1;
 #endif
-      sigprocmask(SIG_SETMASK, &blocked, NULL);
+            sigprocmask(SIG_SETMASK, &blocked, NULL);
 #if USING_JINAMP_CTL
-      if (broken) {
-        /* assume that the control socket is now broken and stop using it */
+            if (broken)
+            {
+                /* assume that the control socket is now broken and stop using it */
 #ifdef DEBUG
-        perror("error on control socket");
+                perror("error on control socket");
 #endif
-        close_control_socket(control_sock, 1);
-        control_sock = -1;
-      }
+                close_control_socket(control_sock, 1);
+                control_sock = -1;
+            }
 #endif /* USING_JINAMP_CTL */
+        }
+#if USING_JINAMP_CTL
+        if (count >= 0)
+            dispatch_command(cur);
+#endif
+        if (child_died)
+        {
+            while (waitpid(-1, NULL, WNOHANG) > 0);
+            child_died = 0;
+#if USING_JINAMP_CTL
+            free(cur);
+#endif
+            return;
+        }
+#if USING_JINAMP_CTL
+        free(cur);
+#endif
     }
-#if USING_JINAMP_CTL
-    if (count >= 0)
-      dispatch_command(cur);
-#endif
-    if (child_died) {
-      while (waitpid(-1, NULL, WNOHANG) > 0);
-      child_died = 0;
-#if USING_JINAMP_CTL
-      free(cur);
-#endif
-      return;
-    }
-#if USING_JINAMP_CTL
-    free(cur);
-#endif
-  }
 }
 
-RETSIGTYPE signalplayer(int sig) {
-  switch (sig) {
-  case SIGUSR1: command_next(); break;  /* ogg123 prefers SIGINT to SIGTERM */
-  case SIGTSTP: command_pause(); break; /* some players ignore TSTP */
-  case SIGCONT: command_continue(); break;
-  default: die("unexpected signal %d", sig);
-  }
+static RETSIGTYPE signalplayer(int sig)
+{
+    switch (sig)
+    {
+    case SIGUSR1: command_next(); break;  /* ogg123 prefers SIGINT to SIGTERM */
+    case SIGTSTP: command_pause(); break; /* some players ignore TSTP */
+    case SIGCONT: command_continue(); break;
+    default: die("unexpected signal %d", sig);
+    }
 }
 
-RETSIGTYPE terminate(int sig) {
-  command_next();
-  cleanup();
-  raise(sig);
+static RETSIGTYPE terminate(int sig)
+{
+    command_next();
+    cleanup();
+    raise(sig);
 }
 
 /* similar to terminate but leaves the player going */
-RETSIGTYPE fastquit(int sig) {
-  command_last();
+static RETSIGTYPE fastquit(int sig)
+{
+    command_last();
 }
 
-RETSIGTYPE sigchld(int sig) {
+static RETSIGTYPE sigchld(int sig)
+{
 #if USING_JINAMP_CTL
-  command_t wake;
+    command_t wake;
 #endif
 
-  child_died = 1;
+    child_died = 1;
 #if USING_JINAMP_CTL
-  if (control_sock != -1) {
-    wake.command = COMMAND_WAKE;
-    send_control_packet(control_sock, &wake, sizeof(wake), 0, 1); /* FIXME: should we wait? */
-  }
+    if (control_sock != -1)
+    {
+        wake.command = COMMAND_WAKE;
+        send_control_packet(control_sock, &wake, sizeof(wake), 0, 1); /* FIXME: should we wait? */
+    }
 #endif
 }
 
-void setsigs() {
-  struct sigaction act;
+static void setsigs(void)
+{
+    struct sigaction act;
 
-  sigemptyset(&act.sa_mask);
-  act.sa_flags = SA_NOCLDSTOP;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = SA_NOCLDSTOP;
 
-  sigemptyset(&blocked);
-  sigprocmask(SIG_BLOCK, &act.sa_mask, &unblocked); /* fetch current */
-  sigprocmask(SIG_BLOCK, &act.sa_mask, &blocked);
-  sigaddset(&blocked, SIGCHLD);
-  sigprocmask(SIG_BLOCK, &blocked, NULL);  /* block SIGCHLD */
+    sigemptyset(&blocked);
+    sigprocmask(SIG_BLOCK, &act.sa_mask, &unblocked); /* fetch current */
+    sigprocmask(SIG_BLOCK, &act.sa_mask, &blocked);
+    sigaddset(&blocked, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &blocked, NULL);  /* block SIGCHLD */
 
-  act.sa_handler = signalplayer;
-  if (sigaction(SIGUSR1, &act, NULL) == -1) die("sigaction");
-  if (sigaction(SIGTSTP, &act, NULL) == -1) die("sigaction");
-  if (sigaction(SIGCONT, &act, NULL) == -1) die("sigaction");
+    act.sa_handler = signalplayer;
+    if (sigaction(SIGUSR1, &act, NULL) == -1) die("sigaction");
+    if (sigaction(SIGTSTP, &act, NULL) == -1) die("sigaction");
+    if (sigaction(SIGCONT, &act, NULL) == -1) die("sigaction");
 
-  act.sa_handler = sigchld;
-  if (sigaction(SIGCHLD, &act, NULL) == -1) die("sigaction");
+    act.sa_handler = sigchld;
+    if (sigaction(SIGCHLD, &act, NULL) == -1) die("sigaction");
 
-  /* We would like to use SA_RESETHAND, but it is not standard.
-   * Instead we reset the signal handlers manually in cleanup().
-   */
-  act.sa_handler = terminate;
-  if (sigaction(SIGTERM, &act, NULL) == -1) die("sigaction");
-  act.sa_handler = fastquit;
-  if (sigaction(SIGINT, &act, NULL) == -1) die("sigaction");
-  if (sigaction(SIGHUP, &act, NULL) == -1) die("sigaction");
+    /* We would like to use SA_RESETHAND, but it is not standard.
+     * Instead we reset the signal handlers manually in cleanup().
+     */
+    act.sa_handler = terminate;
+    if (sigaction(SIGTERM, &act, NULL) == -1) die("sigaction");
+    act.sa_handler = fastquit;
+    if (sigaction(SIGINT, &act, NULL) == -1) die("sigaction");
+    if (sigaction(SIGHUP, &act, NULL) == -1) die("sigaction");
 }
 
 /* Shows the help. The parameters are just to make it work as a callback */
-void show_help(const char *argument, void *data) {
-  printf(PACKAGE ": play files and lists specified on the command line\n\n");
-  printf("Usage: " PACKAGE " [-p player] [-d delay] <options> <files>...\n");
-  printf("Each set is a file, a directory or a playlist. The operators are\n");
-  printf("- (subtraction), ^ (intersection) and parentheses.\n\n");
-  printf("\t-p, --player\tOverride the default player [" DEFAULT_PLAYER "]\n");
-  printf("\t-d, --delay\tOverride the default inter-song delay [%d]\n", DEFAULT_DELAY);
-  printf("\t-c, --count\tNumber of songs to play (0 for infinite loop)\n");
-  printf("\t-r, --repeat\tNumber of times to repeat all (0 for infinite)\n");
-  printf("\t-x, --exclude\tSpecify files to ignore (extended regex)\n");
-  printf("\t-L, --playlist\tSpecify extended regex for playlists\n");
-  printf("\t-h, --help\tPrint this help text and exit\n");
-  printf("\t-V, --version\tShow version information and exit\n");
-  exit(0);
+static void show_help(const char *argument, void *data)
+{
+    printf(PACKAGE ": play files and lists specified on the command line\n\n");
+    printf("Usage: " PACKAGE " [-p player] [-d delay] <options> <files>...\n");
+    printf("Each set is a file, a directory or a playlist. The operators are\n");
+    printf("- (subtraction), ^ (intersection) and parentheses.\n\n");
+    printf("\t-p, --player\tOverride the default player [" DEFAULT_PLAYER "]\n");
+    printf("\t-d, --delay\tOverride the default inter-song delay [%d]\n", DEFAULT_DELAY);
+    printf("\t-c, --count\tNumber of songs to play (0 for infinite loop)\n");
+    printf("\t-r, --repeat\tNumber of times to repeat all (0 for infinite)\n");
+    printf("\t-n, --no-shuffle\tDo not shuffle the songs\n");
+    printf("\t-x, --exclude\tSpecify files to ignore (extended regex)\n");
+    printf("\t-L, --playlist\tSpecify extended regex for playlists\n");
+    printf("\t-h, --help\tPrint this help text and exit\n");
+    printf("\t-V, --version\tShow version information and exit\n");
+    exit(0);
 }
 
 /* Shows the version and copyright. The parameters are just to make it work as a callback */
-void show_version(const char *argument, void *data) {
-  printf(PACKAGE " version " VERSION " Copyright 2001, 2002 Bruce Merry\n\n");
-  printf("You may use, modify and distribute this program under the terms of the\n");
-  printf("GNU GPL version 2 only. See the file COPYING for more information.\n");
-  exit(0);
+static void show_version(const char *argument, void *data)
+{
+    printf(PACKAGE " version " VERSION " Copyright 2001-2005 Bruce Merry\n\n");
+    printf("You may use, modify and distribute this program under the terms of the\n");
+    printf("GNU GPL version 2 only. See the file COPYING for more information.\n");
+    exit(0);
 }
 
 /* data is a pointer to a character array. The string is freed if not
  * null, then allocated and populated with the argument.
  */
-void string_callback(const char *argument, void *data) {
-  char **str;
-  if (argument != NULL && data != NULL) {
-    str = (char **) data;
-    if (*str) free(*str);
-    *str = duplicate(argument);
-  }
+static void string_callback(const char *argument, void *data)
+{
+    char **str;
+    if (argument != NULL && data != NULL)
+    {
+        str = (char **) data;
+        if (*str) free(*str);
+        *str = duplicate(argument);
+    }
 }
 
-void boolean_callback(const char *argument, void *data) {
-  *((int *) data) = 1;
+static void boolean_callback(const char *argument, void *data)
+{
+    *((int *) data) = 1;
 }
 
-void invert_callback(const char *argument, void *data) {
-  *((int *) data) = 0;
+static void invert_callback(const char *argument, void *data)
+{
+    *((int *) data) = 0;
 }
 
-void delay_callback(const char *argument, void *data) {
-  char *check;
+static void delay_callback(const char *argument, void *data)
+{
+    char *check;
 
 #if !HAVE_STRTOL
-  delay = atoi(argument);
+    delay = atoi(argument);
 #else
-  delay = (int) strtol(argument, &check, 10);
-  if (*check) {
-    printf("Delay is not a valid integer, using default delay of %d\n", DEFAULT_DELAY);
-    delay = DEFAULT_DELAY;
-  }
-  if (delay == LONG_MAX && errno == ERANGE) {
-    printf("Delay overflowed, using default delay of %d\n", DEFAULT_DELAY);
-    delay = DEFAULT_DELAY;
-  }
+    delay = (int) strtol(argument, &check, 10);
+    if (*check)
+    {
+        printf("Delay is not a valid integer, using default delay of %d\n", DEFAULT_DELAY);
+        delay = DEFAULT_DELAY;
+    }
+    if (delay == LONG_MAX && errno == ERANGE)
+    {
+        printf("Delay overflowed, using default delay of %d\n", DEFAULT_DELAY);
+        delay = DEFAULT_DELAY;
+    }
 #endif
-  if (delay < 0) {
-    printf("Delay cannot be negative, using default delay of %d\n", DEFAULT_DELAY);
-    delay = DEFAULT_DELAY;
-  }
-  dprintf(DBG_CONFIG_INFO, "Using delay: %d\n", delay);
+    if (delay < 0)
+    {
+        printf("Delay cannot be negative, using default delay of %d\n", DEFAULT_DELAY);
+        delay = DEFAULT_DELAY;
+    }
+    dprintf(DBG_CONFIG_INFO, "Using delay: %ld\n", delay);
 }
 
-void count_callback(const char *argument, void *data) {
-  char *check;
+static void count_callback(const char *argument, void *data)
+{
+    char *check;
 
 #if !HAVE_STRTOL
-  count = atoi(argument);
+    count = atoi(argument);
 #else
-  count = (int) strtol(argument, &check, 10);
-  if (*check) {
-    printf("Count is not a valid integer, using infinite repeat\n");
-    count = 0;
-  }
-  if (delay == LONG_MAX && errno == ERANGE) {
-    printf("Count overflowed, using infinite repeat\n");
-    count = 0;
-  }
+    count = (int) strtol(argument, &check, 10);
+    if (*check)
+    {
+        printf("Count is not a valid integer, using infinite repeat\n");
+        count = 0;
+    }
+    if (count == LONG_MAX && errno == ERANGE)
+    {
+        printf("Count overflowed, using infinite repeat\n");
+        count = 0;
+    }
 #endif
-  if (count < 0) {
-    printf("Count cannot be negative, using infinite repeat\n");
-    count = 0;
-  }
-  dprintf(DBG_CONFIG_INFO, "Using count: %d\n", count);
+    if (count < 0)
+    {
+        printf("Count cannot be negative, using infinite repeat\n");
+        count = 0;
+    }
+    dprintf(DBG_CONFIG_INFO, "Using count: %ld\n", count);
 }
 
-void repeat_callback(const char *argument, void *data) {
-  char *check;
+static void repeat_callback(const char *argument, void *data)
+{
+    char *check;
 
 #if !HAVE_STRTOL
-  repeat = atoi(argument);
+    repeat = atoi(argument);
 #else
-  repeat = (int) strtol(argument, &check, 10);
-  if (*check) {
-    printf("Repeat is not a valid integer, using infinite repeat\n");
-    repeat = 0;
-  }
-  if (delay == LONG_MAX && errno == ERANGE) {
-    printf("Repeat overflowed, using infinite repeat\n");
-    repeat = 0;
-  }
+    repeat = (int) strtol(argument, &check, 10);
+    if (*check)
+    {
+        printf("Repeat is not a valid integer, using infinite repeat\n");
+        repeat = 0;
+    }
+    if (repeat == LONG_MAX && errno == ERANGE)
+    {
+        printf("Repeat overflowed, using infinite repeat\n");
+        repeat = 0;
+    }
 #endif
-  if (repeat < 0) {
-    printf("Repeat cannot be negative, using infinite repeat\n");
-    repeat = 0;
-  }
-  dprintf(DBG_CONFIG_INFO, "Using repeat: %d\n", repeat);
+    if (repeat < 0)
+    {
+        printf("Repeat cannot be negative, using infinite repeat\n");
+        repeat = 0;
+    }
+    dprintf(DBG_CONFIG_INFO, "Using repeat: %ld\n", repeat);
 }
 
 /* FreeBSD documents but does not provide required_argument and
  * no_argument, so we have to use the numeric versions.
  */
-int options(int argc, char * const argv[]) {
-  struct parameter opts[] = {
-  {'p', "player", "player", 1, string_callback, &player},
-  {'d', "delay", "delay", 1, delay_callback, NULL},
-  {'h', "help", NULL, 0, show_help, NULL},
-  {'c', "count", "count", 1, count_callback, NULL},
-  {'r', "repeat", "repeat", 1, repeat_callback, NULL},
-  {'x', "exclude", "exclude", 1, string_callback, &exclude_regex},
-  {'L', "playlist", "playlist", 1, string_callback, &playlist_regex},
-  {'V', "version", NULL, 0, show_version, NULL},
-  {0, 0, 0, 0, 0, 0}
-  };
-  char *home_dir;
-  char *config;
+static int options(int argc, char * const argv[])
+{
+    struct parameter opts[] =
+    {
+        {'p', "player", "player", 1, string_callback, &player},
+        {'d', "delay", "delay", 1, delay_callback, NULL},
+        {'h', "help", NULL, 0, show_help, NULL},
+        {'c', "count", "count", 1, count_callback, NULL},
+        {'r', "repeat", "repeat", 1, repeat_callback, NULL},
+        {'n', "no-shuffle", "no-shuffle", 0, invert_callback, &shuffle_flag},
+        {'x', "exclude", "exclude", 1, string_callback, &exclude_regex},
+        {'L', "playlist", "playlist", 1, string_callback, &playlist_regex},
+        {'V', "version", NULL, 0, show_version, NULL},
+        {0, 0, 0, 0, 0, 0}
+    };
+    char *home_dir;
+    char *config;
 
-  player = duplicate(DEFAULT_PLAYER);
-  playlist_regex = duplicate(PLAYLIST_REGEX);
+    player = duplicate(DEFAULT_PLAYER);
+    playlist_regex = duplicate(PLAYLIST_REGEX);
 #ifdef EXCLUDE_REGEX
-  exclude_regex = duplicate(EXCLUDE_REGEX);
+    exclude_regex = duplicate(EXCLUDE_REGEX);
 #else
-  exclude_regex = NULL;
+    exclude_regex = NULL;
 #endif
 
-  home_dir = getenv("HOME");
-  if (home_dir) {
-    config = safe_malloc(strlen(home_dir) + strlen(CONFIG_SUFFIX) + 2);
-    sprintf(config, "%s/%s", home_dir, CONFIG_SUFFIX);
-    options_file(config, opts);
-    free(config);
-  }
-  return options_cmdline(argc, argv, opts);
+    home_dir = getenv("HOME");
+    if (home_dir)
+    {
+        config = safe_malloc(strlen(home_dir) + strlen(CONFIG_SUFFIX) + 2);
+        sprintf(config, "%s/%s", home_dir, CONFIG_SUFFIX);
+        options_file(config, opts);
+        free(config);
+    }
+    return options_cmdline(argc, argv, opts);
 }
 
-int main(int argc, char * const argv[]) {
-  int first;
+int main(int argc, char * const argv[])
+{
+    int first;
 #ifndef DEBUG
-  int dev_null;
+    int dev_null;
 #endif
 
-  /* if SUID is set, gain higher priority and drop root */
-  if (geteuid() == 0) {
+    /* if SUID is set, gain higher priority and drop root */
+    if (geteuid() == 0)
+    {
 #if HAVE_SETPRIORITY
-    setpriority(PRIO_PROCESS, 0, -15);
+        setpriority(PRIO_PROCESS, 0, -15);
 #endif
-    setuid(getuid());
-  }
+        setuid(getuid());
+    }
 
-  /* Process the command line options */
-  first = options(argc, argv);
-  if (first >= argc)
-    show_help(NULL, NULL);
+    /* Process the command line options */
+    first = options(argc, argv);
+    if (first >= argc)
+        show_help(NULL, NULL);
 
-  /* load the songs from the command line */
-  if (first == 0) first = 1;
-  /* not too sure why the compiler wants the typecast here: it's just an extra const */
-  populate(argc, (const char * const *) argv, first);
+    /* load the songs from the command line */
+    if (first == 0) first = 1;
+    /* not too sure why the compiler wants the typecast here: it's just an extra const */
+    populate(argc, (const char * const *) argv, first);
 
-  /* background ourselves */
+    /* background ourselves */
 #ifndef DEBUG
-  switch (fork()) {
-  case -1: perror("jinamp: fork"); cleanup(); exit(2);
-  case 0:
+    switch (fork())
+    {
+    case -1: perror("jinamp: fork"); cleanup(); exit(2);
+    case 0:
 #if HAVE_DUP2
-    dev_null = open("/dev/null", O_RDWR);
-    if (dev_null != -1) {
-      dup2(dev_null, 0);
-      dup2(dev_null, 1);
-      dup2(dev_null, 2);
-    }
-#else
-    if (0) {}
+        dev_null = open("/dev/null", O_RDWR);
+        if (dev_null != -1)
+        {
+            dup2(dev_null, 0);
+            dup2(dev_null, 1);
+            dup2(dev_null, 2);
+        }
+        else
 #endif
-    else {
-      close(0);
-      close(1);
-      close(2);
+        {
+            close(0);
+            close(1);
+            close(2);
+        }
+        setsigs();
+        setsid();
+        break;
+    default: return 0;
     }
-    setsigs();
-    setsid();
-    break;
-  default: return 0;
-  }
 #else
-  setsigs();
+    setsigs();
 #endif
 
-  /* the fun stuff */
-  shuffle();
+    /* the fun stuff */
+    if (shuffle_flag)
+        shuffle();
+    else
+        noshuffle();
 #if USING_JINAMP_CTL
-  control_sock = get_control_socket(1);
+    control_sock = get_control_socket(1);
 #else
-  control_sock = -1;
+    control_sock = -1;
 #endif
 #if HAVE_ATEXIT
-  atexit(cleanup);
+    atexit(cleanup);
 #endif
-  playall();
-  return 0;
+    playall();
+    return 0;
 }

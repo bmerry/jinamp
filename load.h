@@ -1,8 +1,8 @@
 /*
- $Id: load.h,v 1.6 2004/06/15 18:55:06 bruce Exp $
+ $Id: load.h,v 1.7 2005/04/25 15:16:31 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -31,8 +31,9 @@
 /* Adds the named file, directory or list recursively.
  * The `done' parameter is a list of things to ignore (intended for
  * directories and lists, which aren't already in names)
+ * `value' is set as the value on files loaded into names
  */
 void read_object(const char *file, list *names, list *done,
-                 void *playlist_handle, void *exclude_handle);
+                 void *playlist_handle, void *exclude_handle, void *value);
 
 #endif /* JINAMP_LOAD_H */

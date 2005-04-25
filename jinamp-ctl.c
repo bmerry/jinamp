@@ -1,8 +1,8 @@
 /*
- $Id: jinamp-ctl.c,v 1.8 2004/06/15 18:55:06 bruce Exp $
+ $Id: jinamp-ctl.c,v 1.9 2005/04/25 15:16:31 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -43,99 +43,109 @@
 #include <misc.h>
 #include <control.h>
 
-void show_usage() {
-  fprintf(stderr, "Usage: jinamp-ctl <command>\n\n");
-  fprintf(stderr, "Commands are:\n");
-  fprintf(stderr, "next\t\tskip remainer of current file\n");
-  fprintf(stderr, "stop\t\tquit immediately\n");
-  fprintf(stderr, "last\t\tquit at end of current file\n");
-  fprintf(stderr, "pause\t\tPause current file\n");
-  fprintf(stderr, "continue\tResume current file\n");
-  fprintf(stderr, "replace\tReplace play list with command line arguments\n");
-  fprintf(stderr, "query\tReturns the filename of the currently playing file\n");
-  exit(1);
+static void show_usage(void)
+{
+    fprintf(stderr, "Usage: jinamp-ctl <command>\n\n");
+    fprintf(stderr, "Commands are:\n");
+    fprintf(stderr, "next\t\tskip remainer of current file\n");
+    fprintf(stderr, "stop\t\tquit immediately\n");
+    fprintf(stderr, "last\t\tquit at end of current file\n");
+    fprintf(stderr, "pause\t\tPause current file\n");
+    fprintf(stderr, "continue\tResume current file\n");
+    fprintf(stderr, "replace\tReplace play list with command line arguments\n");
+    fprintf(stderr, "query\tReturns the filename of the currently playing file\n");
+    exit(1);
 }
 
-void send_replace(int sock, int argc, const char *argv[]) {
-  int i;
-  int count, total;
-  command_list_t rep;
+static void send_replace(int sock, int argc, const char *argv[])
+{
+    int i;
+    size_t count, total;
+    command_list_t rep;
 
-  rep.command = COMMAND_REPLACE;
-  total = 0;
-  for (i = 0; i < argc; i++) {
-    count = strlen(argv[i]) + 1;
-    if (count + total > sizeof(rep.argv)) break;
-    strcpy(rep.argv + total, argv[i]);
-    total += count;
-  }
-  rep.argc = i;
-  send_control_packet(sock, (command_t *) &rep, sizeof(rep) - sizeof(rep.argv) + total, 1, 1);
+    rep.command = COMMAND_REPLACE;
+    total = 0;
+    for (i = 0; i < argc; i++)
+    {
+        count = strlen(argv[i]) + 1;
+        if (count + total > sizeof(rep.argv)) break;
+        strcpy(rep.argv + total, argv[i]);
+        total += count;
+    }
+    rep.argc = i;
+    send_control_packet(sock, (command_t *) &rep, sizeof(rep) - sizeof(rep.argv) + total, 1, 1);
 }
 
-RETSIGTYPE alarm_handler(int sig) {
-  fprintf(stderr, "Timed out\n");
-  exit(2);
+static RETSIGTYPE alarm_handler(int sig)
+{
+    fprintf(stderr, "Timed out\n");
+    exit(2);
 }
 
-void do_query(int sock) {
-  command_t query;
-  command_string_t reply;
+static void do_query(int sock)
+{
+    command_t query;
+    command_string_t reply;
 
-  query.command = COMMAND_QUERY;
-  send_control_packet(sock, &query, sizeof(query), 1, 1);
-  receive_control_packet(sock, (command_t *) &reply, sizeof(reply), 1, 0);
-  reply.value[sizeof(reply.value) - 1] = '\0';
-  printf("%s\n", reply.value);
+    query.command = COMMAND_QUERY;
+    send_control_packet(sock, &query, sizeof(query), 1, 1);
+    receive_control_packet(sock, (command_t *) &reply, sizeof(reply), 1, 0);
+    reply.value[sizeof(reply.value) - 1] = '\0';
+    printf("%s\n", reply.value);
 }
 
-void prepare_alarm() {
-  struct sigaction act;
+static void prepare_alarm(void)
+{
+    struct sigaction act;
 
-  act.sa_handler = alarm_handler;
-  sigemptyset(&act.sa_mask);
-  act.sa_flags = 0;
-  sigaction(SIGALRM, &act, NULL);
+    act.sa_handler = alarm_handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    sigaction(SIGALRM, &act, NULL);
 
-  alarm(2);
+    alarm(2);
 }
 
-int main(int argc, const char *argv[]) {
-  int sock;
-  int sent = 0;
-  command_t msg;
+int main(int argc, const char *argv[])
+{
+    int sock;
+    int sent = 0;
+    command_t msg;
 
-  prepare_alarm();
-  if (argc <= 1) show_usage();
-  sock = get_control_socket(0);
-  if (sock == -1) {
-    if (errno == ENOENT)
-      die("failed to open connection: jinamp not running");
-    else
-      pdie("failed to open connection");
-  }
-  if (!strcmp(argv[1], "next"))
-    msg.command = COMMAND_NEXT;
-  else if (!strcmp(argv[1], "last"))
-    msg.command = COMMAND_LAST;
-  else if (!strcmp(argv[1], "pause"))
-    msg.command = COMMAND_PAUSE;
-  else if (!strcmp(argv[1], "continue"))
-    msg.command = COMMAND_CONTINUE;
-  else if (!strcmp(argv[1], "stop"))
-    msg.command = COMMAND_STOP;
-  else if (!strcmp(argv[1], "replace")) {
-    send_replace(sock, argc - 2, argv + 2);
-    sent = 1;
-  }
-  else if (!strcmp(argv[1], "query")) {
-    do_query(sock);
-    sent = 1;
-  }
-  else show_usage();
+    prepare_alarm();
+    if (argc <= 1) show_usage();
+    sock = get_control_socket(0);
+    if (sock == -1)
+    {
+        if (errno == ENOENT)
+            die("failed to open connection: jinamp not running");
+        else
+            pdie("failed to open connection");
+    }
+    if (!strcmp(argv[1], "next"))
+        msg.command = COMMAND_NEXT;
+    else if (!strcmp(argv[1], "last"))
+        msg.command = COMMAND_LAST;
+    else if (!strcmp(argv[1], "pause"))
+        msg.command = COMMAND_PAUSE;
+    else if (!strcmp(argv[1], "continue"))
+        msg.command = COMMAND_CONTINUE;
+    else if (!strcmp(argv[1], "stop"))
+        msg.command = COMMAND_STOP;
+    else if (!strcmp(argv[1], "replace"))
+    {
+        send_replace(sock, argc - 2, argv + 2);
+        sent = 1;
+    }
+    else if (!strcmp(argv[1], "query"))
+    {
+        do_query(sock);
+        sent = 1;
+    }
+    else show_usage();
 
-  if (!sent)
-    send_control_packet(sock, &msg, sizeof(msg), 1, 1);
-  close_control_socket(sock, 0);
-  return 0;
+    if (!sent)
+        send_control_packet(sock, &msg, sizeof(msg), 1, 1);
+    close_control_socket(sock, 0);
+    return 0;
 }

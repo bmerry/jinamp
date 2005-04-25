@@ -1,8 +1,8 @@
 /*
- $Id: list.h,v 1.5 2004/06/15 18:55:06 bruce Exp $
+ $Id: list.h,v 1.6 2005/04/25 15:16:31 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -40,50 +40,54 @@
 # include <sys/types.h>
 #endif
 
-typedef struct node_s {
-  char *item;
-  struct node_s *children[2];          /* 0 is left, 1 is right */
-  int depth;
+typedef struct node_s
+{
+    char *key;
+    void *value;
+    struct node_s *children[2];          /* 0 is left, 1 is right */
+    int depth;
 } node;
 
-typedef struct {
-  node *head;
+typedef struct
+{
+    node *head;
+    int owns_values;
 } list;
 
 /* allocates and returns an empty list */
-list *list_alloc();
+list *list_alloc(int owns_values);
 
 /* initialises a list to empty */
-void list_init(list *l);
+void list_init(list *l, int owns_values);
 
 /* returns number of elements in list */
-size_t list_count(list *l);
+size_t list_count(const list *l);
 
 /* returns true for successful insert, false for duplicate */
-int list_insert(list *l, char *item);
+int list_insert(list *l, const char *item, void *value);
 
 /* returns true if item found and removed, false if not found */
-int list_remove(list *l, char *item);
+int list_remove(list *l, const char *item);
 
 /* returns true iff item is in l */
-int list_find(list *l, const char *item);
+int list_find(const list *l, const char *item);
 
-/* frees the list (if ``strings'' is true then strings freed as well) */
-void list_dispose(list *l, int strings);
+/* frees the list */
+void list_dispose(list *l);
 
 /* calls list_dispose then frees the list structure itself */
-void list_free(list *l, int strings);
+void list_free(list *l);
 
 /* passes data to walker for every item in the list */
-void list_walk(list *l, void (*walker)(char *item, void *data), void *data);
+void list_walk(const list *l, void (*walker)(const char *item, void *value, void *data), void *data);
 
 /* merges list2 into list1 */
-void list_merge(list *list1, list *list2);
+void list_merge(list *list1, const list *list2);
 
 /* takes everything in list2 and removes it from list1 */
-void list_subtract(list *list1, list *list2);
+void list_subtract(list *list1, const list *list2);
 
 /* removes anything from list1 not in list2 */
-void list_mask(list *list1, list *list2);
+void list_mask(list *list1, const list *list2);
 
 #endif /* JINAMP_LIST_H */

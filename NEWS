@@ -1,3 +1,7 @@
+This version adds some minor improvements that I've been meaning to make
+for years and never gotten around to. In particular
+* --no-shuffle returns, and now actually does something
+
 2004-06-15 jinamp 1.0
 
 Since I've been completely happy with jinamp for the last 18 months,

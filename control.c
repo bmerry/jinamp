@@ -1,8 +1,8 @@
 /*
- $Id: control.c,v 1.6 2004/06/15 18:55:06 bruce Exp $
+ $Id: control.c,v 1.7 2005/04/25 15:16:31 bruce Exp $
 
  jinamp: a command line music shuffler
- Copyright (C) 2001, 2002, 2004  Bruce Merry.
+ Copyright (C) 2001-2005  Bruce Merry.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2 as
@@ -49,66 +49,72 @@
 
 #include <misc.h>
 
-struct msgbuffer {
-  long mtype;
-  char mtext[1];
+struct msgbuffer
+{
+    long mtype;
+    char mtext[1];
 };
 
-int get_control_socket(int server) {
-  key_t key;
-  const char *home;
-  int oldid;
+int get_control_socket(int server)
+{
+    key_t key;
+    const char *home;
+    int oldid;
 
-  home = getenv("HOME");
-  if (home == NULL) home = "/";
-  key = ftok(home, 'a');
-  if (key == -1)
-    key = ftok("/", 'a');
-  if (key == -1) return -1;
-  if (server) {
-    /* first try to clean up old queues */
-    oldid = msgget(key, 0600);
-    if (oldid != -1)
-      msgctl(oldid, IPC_RMID, NULL);
-    return msgget(key, IPC_CREAT | IPC_EXCL | 0600);
-  }
-  else
-    return msgget(key, 0600);
+    home = getenv("HOME");
+    if (home == NULL) home = "/";
+    key = ftok(home, 'a');
+    if (key == -1)
+        key = ftok("/", 'a');
+    if (key == -1) return -1;
+    if (server)
+    {
+        /* first try to clean up old queues */
+        oldid = msgget(key, 0600);
+        if (oldid != -1)
+            msgctl(oldid, IPC_RMID, NULL);
+        return msgget(key, IPC_CREAT | IPC_EXCL | 0600);
+    }
+    else
+        return msgget(key, 0600);
 }
 
-void close_control_socket(int sock, int server) {
-  if (server)
-    msgctl(sock, IPC_RMID, NULL);
+void close_control_socket(int sock, int server)
+{
+    if (server)
+        msgctl(sock, IPC_RMID, NULL);
 }
 
-int send_control_packet(int socket, const command_t *command, size_t command_len, int wait, int toserver) {
-  struct msgbuffer *msg;
-  int ret;
-  int olderr;
+int send_control_packet(int socket, const command_t *command, size_t command_len, int wait, int toserver)
+{
+    struct msgbuffer *msg;
+    int ret;
+    int olderr;
 
-  msg = malloc(command_len + sizeof(msg->mtype));
-  if (msg == NULL) return -1;
-  msg->mtype = toserver ? 1 : 2;
-  memcpy(&msg->mtext, command, command_len);
-  ret = msgsnd(socket, msg, command_len + sizeof(msg->mtype), wait ? 0 : IPC_NOWAIT);
-  olderr = errno;
-  free(msg);
-  errno = olderr;
-  return ret;
+    msg = malloc(command_len + sizeof(msg->mtype));
+    if (msg == NULL) return -1;
+    msg->mtype = toserver ? 1 : 2;
+    memcpy(&msg->mtext, command, command_len);
+    ret = msgsnd(socket, msg, command_len + sizeof(msg->mtype), wait ? 0 : IPC_NOWAIT);
+    olderr = errno;
+    free(msg);
+    errno = olderr;
+    return ret;
 }
 
-int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait, int server) {
-  struct msgbuffer *msg;
-  int ret;
+int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait, int server)
+{
+    struct msgbuffer *msg;
+    int ret;
 
-  msg = (struct msgbuffer *) malloc(maxlen + sizeof(msg->mtype));
-  ret = msgrcv(socket, msg, maxlen + sizeof(msg->mtype),
-               server ? 1 : 2, MSG_NOERROR | (wait ? 0 : IPC_NOWAIT));
-  if (ret == -1) return -1;
-  ret -= sizeof(msg->mtype);
-  if (ret < 0) ret = 0;
-  memcpy(buffer, msg->mtext, ret);
-  return ret;
+    msg = (struct msgbuffer *) malloc(maxlen + sizeof(msg->mtype));
+    ret = msgrcv(socket, msg, maxlen + sizeof(msg->mtype),
+                 server ? 1 : 2, MSG_NOERROR | (wait ? 0 : IPC_NOWAIT));
+    if (ret == -1) return -1;
+    ret -= sizeof(msg->mtype);
+    if (ret < 0) ret = 0;
+    memcpy(buffer, msg->mtext, ret);
+    return ret;
 }
 
 #endif /* USING_JINAMP_CONTROL */
