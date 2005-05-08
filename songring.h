@@ -1,5 +1,5 @@
 /*
- $Id$
+ $Id: list.h 76 2005-04-25 15:16:38Z bruce $
 
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.
@@ -23,17 +23,31 @@
  decide whether to relicense the software under it.
  */
 
-#ifndef JINAMP_LOAD_H
-#define JINAMP_LOAD_H
-
-#include <set.h>
-
-/* Adds the named file, directory or list recursively.
- * The `done' parameter is a list of things to ignore (intended for
- * directories and lists, which aren't already in names)
- * `value' is set as the value on files loaded into names
+/*! \file songring.h
+ * \brief song ring management
+ * This file declares the song ring functions implemented in songring.c.
+ * A song ring is a doubly linked ring of song-specific data.
  */
-void read_object(const char *file, set *names, set *done,
-                 void *playlist_handle, void *exclude_handle, void *value);
 
-#endif /* JINAMP_LOAD_H */
+#ifndef JINAMP_SONGRING_H
+#define JINAMP_SONGRING_H
+
+#include <stddef.h>
+
+typedef struct song
+{
+    const char *name;
+    size_t order;    /* Number of associated command line argument */
+    int once;        /* True if loaded through jinamp-ctl queue */
+    struct song *next;
+    struct song *prev;
+} song;
+
+/* Most functions return a new handle to the ring. */
+
+song *ring_append(song *ring, song *s);
+song *ring_remove(song *ring, song *s);
+void ring_free(song *ring);
+song *ring_sort(song *ring); /* Sort by \c order field */
+
+#endif /* JINAMP_SONGRING_H */

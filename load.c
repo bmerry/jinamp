@@ -1,5 +1,5 @@
 /*
- $Id: load.c,v 1.6 2005/04/25 15:16:31 bruce Exp $
+ $Id$
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.
 
@@ -61,10 +61,10 @@
 
 #include <misc.h>
 #include <load.h>
-#include <list.h>
+#include <set.h>
 #include <debug.h>
 
-static void read_list(const char *listname, list *names, list *done,
+static void read_list(const char *listname, set *names, set *done,
                       void *playlist_handle, void *exclude_handle,
                       void *value)
 {
@@ -106,7 +106,7 @@ static void read_list(const char *listname, list *names, list *done,
     free(buffer);
 }
 
-static void read_directory(const char *dirname, list *names, list *done,
+static void read_directory(const char *dirname, set *names, set *done,
                            void *playlist_handle, void *exclude_handle,
                            void *value)
 {
@@ -144,7 +144,7 @@ static void read_directory(const char *dirname, list *names, list *done,
     closedir(directory);
 }
 
-void read_object(const char *file, list *names, list *done,
+void read_object(const char *file, set *names, set *done,
                  void *playlist_handle, void *exclude_handle, void *value)
 {
     struct stat buf;
@@ -152,7 +152,7 @@ void read_object(const char *file, list *names, list *done,
     char *canon;
     int path_max;
 
-    if (list_find(done, file)) return; /* already processed */
+    if (set_find(done, file)) return; /* already processed */
 
     /* check that there is something there */
     r = stat(file, &buf);
@@ -160,14 +160,14 @@ void read_object(const char *file, list *names, list *done,
     {
         printf("Warning: cannot access %s, skipping\n", file);
         /* avoid further errors */
-        list_insert(done, file, NULL);
+        set_insert(done, file, NULL);
         return;
     }
     if (access(file, R_OK))
     {
         printf("Warning: cannot read %s, skipping\n", file);
         /* avoid further errors */
-        list_insert(done, file, NULL);
+        set_insert(done, file, NULL);
         return;
     }
 
@@ -194,21 +194,21 @@ void read_object(const char *file, list *names, list *done,
     {
         if (S_ISDIR(buf.st_mode))
         {
-            list_insert(done, canon, NULL);
-            dprintf(DBG_LOAD_DONE, "Added %s to done list\n", canon);
+            set_insert(done, canon, NULL);
+            dprintf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
             read_directory(canon, names, done, playlist_handle, exclude_handle, value);
         }
         else if (S_ISREG(buf.st_mode))
         {
             if (playlist_handle && regex_test(canon, playlist_handle) == 0)
             {
-                list_insert(done, canon, NULL);
-                dprintf(DBG_LOAD_DONE, "Added %s to done list\n", canon);
+                set_insert(done, canon, NULL);
+                dprintf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
                 read_list(canon, names, done, playlist_handle, exclude_handle, value);
             }
             else
             {
-                list_insert(names, canon, value);
+                set_insert(names, canon, value);
                 dprintf(DBG_LOAD_SHOW, "%p: Added %s\n", (void *) names, canon);
             }
         }

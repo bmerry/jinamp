@@ -1,5 +1,5 @@
 /*
- $Id: jinamp.c,v 1.21 2005/04/25 15:16:31 bruce Exp $
+ $Id$
 
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.
@@ -65,9 +65,11 @@
 #if HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
 #endif
+#include <stddef.h>
 
 #include <misc.h>
-#include <list.h>
+#include <set.h>
+#include <songring.h>
 #include <load.h>
 #include <options.h>
 #include <control.h>
@@ -98,19 +100,18 @@
 
 /* dynamic data */
 static pid_t playerpid = 0;
-static list *songs;
-static char **order;
-static size_t total_songs;
+static set *song_set = NULL;  /* Value is a song * pointer */
+static song *songs = NULL;    /* Next song in the ring */
 static int control_sock = -1;
-static const char *current_file;
-static long counter;
+static long counter;          /* Number remaining to play */
+static size_t total_songs;
 
 /* config data */
 static char *player;
 static char *playlist_regex;
 static char *exclude_regex;
 static long delay = DEFAULT_DELAY;
-static long count = 0, repeat = 0, counter;
+static long count = 0, repeat = 0;
 static int shuffle_flag = 1;
 static int kill_signal = DEFAULT_KILL_SIGNAL;
 static int pause_signal = DEFAULT_PAUSE_SIGNAL;
@@ -134,7 +135,7 @@ static void cleanup(void)
 }
 
 /* Recursive function for parsing command line parameters. It allocates and fills in a
- * list starting at `first' and continuing until the end of the expression, which is
+ * set starting at `first' and continuing until the end of the expression, which is
  * determined by level (a terminator is end of parameters or an unmatched ')').
  * 0: read until arguments run out (used at top level only)
  * 1: read until unmatched ')' seen, and discard it (for processing inside parentheses)
@@ -146,12 +147,12 @@ static void cleanup(void)
  * The index of the parameter AFTER the last one swallowed is returned in *end.
  * NULL is returned if the expression is invalid.
  */
-static list *read_argv(int argc, const char * const argv[], int first,
-                       int level, int *end,
-                       void *playlist_handle, void *exclude_handle)
+static set *read_argv(int argc, const char * const argv[], int first,
+                      int level, int *end,
+                      void *playlist_handle, void *exclude_handle)
 {
     int i;
-    list *current, *next, *done;
+    set *current, *next, *done;
     int op;  /* 0 = union, 1 = subtract, 2 = intersect */
 
     current = NULL;
@@ -171,7 +172,7 @@ static list *read_argv(int argc, const char * const argv[], int first,
             case '!':
             case '-':
                 if (current == NULL) return NULL;    /* can't subtract from nothing */
-                if (op != 0) goto bailout;           /* were expecting a list */
+                if (op != 0) goto bailout;           /* were expecting a set */
                 if (level == 2)
                 {
                     *end = i;
@@ -187,7 +188,7 @@ static list *read_argv(int argc, const char * const argv[], int first,
             case ')':
                 if (level == 0) goto bailout;
                 if (op != 0) goto bailout;
-                if (current == NULL) current = list_alloc(0); /* handle () case */
+                if (current == NULL) current = set_alloc(0); /* handle () case */
                 *end = i + ((level == 2) ? 0 : 1);
                 return current;
             }
@@ -208,11 +209,11 @@ static list *read_argv(int argc, const char * const argv[], int first,
             }
             else
             {
-                done = list_alloc(0);
-                next = list_alloc(0);
+                done = set_alloc(0);
+                next = set_alloc(0);
                 read_object(argv[i], next, done, playlist_handle, exclude_handle,
                             ((char *) NULL) + i);
-                list_free(done);
+                set_free(done);
             }
         }
         switch (op)
@@ -221,18 +222,18 @@ static list *read_argv(int argc, const char * const argv[], int first,
             if (current == NULL) current = next;
             else
             {
-                list_merge(current, next);
-                list_free(next);
+                set_merge(current, next);
+                set_free(next);
             }
             break;
         case 1:
-            list_subtract(current, next);
-            list_free(next);
+            set_subtract(current, next);
+            set_free(next);
             op = 0;
             break;
         case 2:
-            list_mask(current, next);
-            list_free(next);
+            set_mask(current, next);
+            set_free(next);
             op = 0;
             break;
         }
@@ -246,8 +247,40 @@ static list *read_argv(int argc, const char * const argv[], int first,
      * the same code 7 or 8 times, and can't be put in a procedure because it
      * has a return. */
 bailout:
-    if (current) list_free(current);
+    if (current) set_free(current);
     return NULL;
+}
+
+static void flatten_walker(const char *name, void **value, void *data)
+{
+    song *self;
+
+    self = safe_malloc(sizeof(song));
+    self->name = name;
+    self->order = (const char *) *value - (const char *) NULL;
+    self->once = 0;
+    self->prev = NULL;
+    self->next = NULL;
+
+    *(song **) data = ring_append(*(song **) data, self);
+    *value = self;
+}
+
+static song *flatten_songs(set *song_set, int do_shuffle)
+{
+    song *ans = NULL, *i;
+
+    set_walk(song_set, flatten_walker, &ans);
+    if (do_shuffle)
+    {
+        i = ans;
+        do
+        {
+            i->order = rand();
+            i = i->next;
+        } while (i != ans);
+    }
+    return ans;
 }
 
 /* Take the command line options and expand to get playlist
@@ -273,7 +306,12 @@ static void populate(int argc, const char * const argv[], int first)
     else exclude_handle = NULL;
 
     /* we overwrite first simply because it is no longer needed */
-    songs = read_argv(argc, argv, first, 0, &first, playlist_handle, exclude_handle);
+    if (song_set) set_free(song_set);
+    if (songs) ring_free(songs);
+    song_set = read_argv(argc, argv, first, 0, &first, playlist_handle, exclude_handle);
+    total_songs = set_count(song_set);
+    songs = flatten_songs(song_set, shuffle_flag);
+    songs = ring_sort(songs);
 
     regex_done(playlist_handle);
     regex_done(exclude_handle);
@@ -285,7 +323,7 @@ static void populate(int argc, const char * const argv[], int first)
         exit(1);
     }
 
-    if (list_count(songs) == 0)
+    if (set_count(song_set) == 0)
     {
         fprintf(stderr, "No songs to play!\n");
         cleanup();
@@ -293,122 +331,16 @@ static void populate(int argc, const char * const argv[], int first)
     }
 }
 
-/* helper structure for use with the walker */
-typedef struct
-{
-    size_t walker_pos;
-    size_t *walker_map;
-} shuffle_walker_data;
-
-/* takes the data from the list and puts it in the array */
-static void shuffle_walker(const char *item, void *value, void *data)
-{
-    shuffle_walker_data *d = (shuffle_walker_data *) data;
-
-    dprintf(DBG_LIST_WALKER, "Walker: %s\n", item);
-    order[d->walker_map[d->walker_pos++]] = duplicate(item);
-}
-
-/* reorder the list and place in an array */
-static void shuffle(void)
-{
-    int *used;
-    size_t i, j, c;
-    shuffle_walker_data data;
-
-    /* calculate random order */
-    total_songs = list_count(songs);
-    dprintf(DBG_MISC, "Count: %ld\n", (long) total_songs);
-    data.walker_map = (size_t *) safe_malloc(sizeof(size_t) * total_songs);
-    used = (int *) safe_malloc(sizeof(int) * total_songs);
-    for (i = 0; i < total_songs; i++)
-        used[i] = 0;
-    srand((unsigned int) time(NULL));
-    for (i = 0; i < total_songs; i++)
-    {
-        c = rand() % (total_songs - i) + 1;
-        for (j = 0; c; j++)
-            if (!used[j]) c--;
-        data.walker_map[i] = --j;
-        used[j] = 1;
-    }
-
-    /* extract into array */
-    order = (char **) safe_malloc(sizeof(char *) * total_songs);
-    data.walker_pos = 0;
-    list_walk(songs, shuffle_walker, (void *) &data);
-
-    /* free stuff that is no longer needed */
-    free(data.walker_map);
-    free(used);
-    list_free(songs);
-}
-
-typedef struct
-{
-    char *name;
-    void *tag;
-} tagged_song;
-
-typedef struct
-{
-    size_t pos;
-    tagged_song *songs;
-} noshuffle_walker_data;
-
-static void noshuffle_walker(const char *item, void *value, void *data)
-{
-    noshuffle_walker_data *d = (noshuffle_walker_data *) data;
-    d->songs[d->pos].name = duplicate(item);
-    d->songs[d->pos].tag = value;
-    d->pos++;
-}
-
-static int compare_tagged_songs(const void *a, const void *b)
-{
-    const tagged_song *A = (const tagged_song *) a;
-    const tagged_song *B = (const tagged_song *) b;
-    if (A->tag < B->tag) return -1;
-    if (A->tag > B->tag) return 1;
-    return strcmp(A->name, B->name);
-}
-
-static void noshuffle(void)
-{
-    noshuffle_walker_data data;
-    size_t i;
-
-    total_songs = list_count(songs);
-    dprintf(DBG_MISC, "Count: %ld\n", (long) total_songs);
-
-    /* extract into array */
-    data.songs = (tagged_song*) safe_malloc(sizeof(tagged_song) * total_songs);
-    data.pos = 0;
-    list_walk(songs, noshuffle_walker, (void *) &data);
-
-    /* sort array by tags, then strip tags */
-    qsort(data.songs, total_songs, sizeof(tagged_song), compare_tagged_songs);
-    order = (char **) safe_malloc(sizeof(char *) * total_songs);
-    for (i = 0; i < total_songs; i++)
-        order[i] = data.songs[i].name;
-
-    /* free stuff that is no longer needed */
-    free(data.songs);
-    list_free(songs);
-}
-
 static void process_commands(void);
 
 /* the main play loop */
 static void playall(void)
 {
-    int i;
     pid_t f;
 
     counter = total_songs * repeat + count;
-    for (i = 0;; i = (i + 1) % total_songs)
+    while (1)
     {
-        current_file = order[i];
         f = fork();
         switch (f)
         {
@@ -421,7 +353,7 @@ static void playall(void)
             close(2);
             setsid();
 #endif
-            execl(player, player, current_file, NULL);
+            execl(player, player, songs->name, NULL);
             cleanup();
             exit(2);
             break;
@@ -435,6 +367,8 @@ static void playall(void)
             counter--;
             if (counter == 0) break;
         }
+
+        songs = songs->next;
     }
 }
 
@@ -519,18 +453,11 @@ static void dispatch_command(const command_t *cur)
     case COMMAND_REPLACE:
         argc = unpack((const command_list_t *) cur, &argv);
         if (argc != -1)
-        {
             populate(argc, argv, 0);
-            free(order);
-            if (shuffle_flag)
-                shuffle();
-            else
-                noshuffle();
-        }
         break;
     case COMMAND_QUERY:
         reply.command = REPLY_QUERY;
-        my_strncpy(reply.value, current_file, sizeof(reply.value));
+        my_strncpy(reply.value, songs->name, sizeof(reply.value));
         send_control_packet(control_sock, (command_t *) &reply, (reply.value + strlen(reply.value) + 1) - (char *) &reply, 0, 0);
         break;
     default: abort();
@@ -863,7 +790,6 @@ int main(int argc, char * const argv[])
 
     /* load the songs from the command line */
     if (first == 0) first = 1;
-    /* not too sure why the compiler wants the typecast here: it's just an extra const */
     populate(argc, (const char * const *) argv, first);
 
     /* background ourselves */
@@ -897,10 +823,6 @@ int main(int argc, char * const argv[])
 #endif
 
     /* the fun stuff */
-    if (shuffle_flag)
-        shuffle();
-    else
-        noshuffle();
 #if USING_JINAMP_CTL
     control_sock = get_control_socket(1);
 #else

@@ -1,5 +1,5 @@
 /*
- $Id: list.c,v 1.8 2005/04/25 15:16:31 bruce Exp $
+ $Id$
 
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.
@@ -39,39 +39,39 @@
 # include <sys/types.h>
 #endif
 
-#include <list.h>
+#include <set.h>
 #include <misc.h>
 #include <debug.h>
 
 #define GET_DEPTH(node) (((node) ? (node)->depth : -1))
 #define TOO_SHALLOW(node, side) (GET_DEPTH((node)->children[(side)]) < (node)->depth - 2)
 
-list *list_alloc(int owns_values)
+set *set_alloc(int owns_values)
 {
-    list *tmp = (list *) safe_malloc(sizeof(list));
+    set *tmp = (set *) safe_malloc(sizeof(set));
 
-    dprintf(DBG_LIST_OPS, "%p: list created\n", (void *) tmp);
-    list_init(tmp, owns_values);
+    dprintf(DBG_SET_OPS, "%p: set created\n", (void *) tmp);
+    set_init(tmp, owns_values);
     return tmp;
 }
 
-void list_init(list *l, int owns_values)
+void set_init(set *l, int owns_values)
 {
-    dprintf(DBG_LIST_OPS, "%p: list initialised\n", (void *) l);
+    dprintf(DBG_SET_OPS, "%p: set initialised\n", (void *) l);
     l->head = NULL;
     l->owns_values = owns_values;
 }
 
-static void count_walker(const char *key, void *value, void *data)
+static void count_walker(const char *key, void **value, void *data)
 {
     (*((size_t *) data))++;
 }
 
-size_t list_count(const list *l)
+size_t set_count(const set *l)
 {
     size_t tot = 0;
-    list_walk(l, count_walker, (void *) &tot);
-    dprintf(DBG_LIST_OPS, "%p: counted: %ld elements\n", (const void *) l, (long) tot);
+    set_walk((set *) l, count_walker, (void *) &tot);
+    dprintf(DBG_SET_OPS, "%p: counted: %ld elements\n", (const void *) l, (long) tot);
     return tot;
 }
 
@@ -144,28 +144,28 @@ static void avl_assert_depth(const node *root)
 static void avl_print_tree(const node *root, int offset)
 {
     if (root->children[0]) avl_print_tree(root->children[0], offset + 3);
-    dprintf(DBG_LIST_SHOW, "%*c%s\n", offset, ' ', root->key);
+    dprintf(DBG_SET_SHOW, "%*c%s\n", offset, ' ', root->key);
     if (root->children[1]) avl_print_tree(root->children[1], offset + 3);
 }
 
 /* checks that the AVL tree is valid */
-static void avl_assert_valid(const list *l)
+static void avl_assert_valid(const set *l)
 {
     const char *first, *last;                       /* dummy */
-    dprintf(DBG_LIST_OPS, "%p: asserting AVL tree\n", (void *) l);
+    dprintf(DBG_SET_OPS, "%p: asserting AVL tree\n", (void *) l);
     avl_assert_order(l->head, &first, &last);
     avl_assert_depth(l->head);
 }
 
-static void print_list(const list *l)
+static void print_set(const set *l)
 {
-    dprintf(DBG_LIST_SHOW, "Printing list %p\n", (void *) l);
-    if (debug_flags && DBG_LIST_SHOW && l->head)
+    dprintf(DBG_SET_SHOW, "Printing set %p\n", (void *) l);
+    if (debug_flags && DBG_SET_SHOW && l->head)
         avl_print_tree(l->head, 2);
 }
 #else /* DEBUG */
 #define avl_assert_valid(root)
-#define print_list(l)
+#define print_set(l)
 #endif /* DEBUG */
 
 /* child is the side that is too deep */
@@ -201,7 +201,7 @@ static void avl_double_rotate(node **root, int child)
 
 /* Inserts an item into a subtree, balancing if necessary. A return of 2 indicates
  * successful insertion and balancing was done, 1 indicates insertion w/o balancing
- * and 0 indicates that the key was a duplicate
+ * and 0 indicates that the key was a duplicate (but value is still set).
  */
 static int avl_insert(node **root, const char *key, void *value)
 {
@@ -212,7 +212,11 @@ static int avl_insert(node **root, const char *key, void *value)
 
     n = *root;
     r = strcmp(key, n->key);
-    if (r == 0) return 0;                /* duplicate */
+    if (r == 0) /* duplicate */
+    {
+        n->value = value;
+        return 0;
+    }
     child = r > 0;
     if (!n->children[child])
     {
@@ -242,13 +246,13 @@ static int avl_insert(node **root, const char *key, void *value)
     return 0;
 }
 
-/* returns true for successful insert, false for duplicate */
-int list_insert(list *l, const char *key, void *value)
+/* returns true for successful insert, false for duplicate (but value is always set) */
+int set_insert(set *l, const char *key, void *value)
 {
     node *tmp;
     int r;
 
-    dprintf(DBG_LIST_OPS, "%p: inserting %s\n", (void *) l, key);
+    dprintf(DBG_SET_OPS, "%p: inserting %s\n", (void *) l, key);
     if (l->head == NULL)
     {
         tmp = (node *) safe_malloc(sizeof(node));
@@ -262,7 +266,7 @@ int list_insert(list *l, const char *key, void *value)
     }
     else
         r = avl_insert(&l->head, key, value);
-    print_list(l);
+    print_set(l);
     avl_assert_valid(l);
     return r;
 }
@@ -334,63 +338,63 @@ static int avl_remove(node **root, const char *key,
 }
 
 /* returns true if key found and removed, false if not found */
-int list_remove(list *l, const char *key)
+int set_remove(set *l, const char *key)
 {
     int r;
 
-    dprintf(DBG_LIST_OPS, "%p: removing %s\n", (void *) l, key);
+    dprintf(DBG_SET_OPS, "%p: removing %s\n", (void *) l, key);
     if (l->head == NULL)
         r = 0;
     else
         r = (avl_remove(&l->head, key, 1, l->owns_values) != 0);
-    print_list(l);
+    print_set(l);
     avl_assert_valid(l);
     return r;
 }
 
-int list_find(const list *l, const char *key)
+int set_find(const set *l, const char *key)
 {
     node *cur;
     int cmp;
 
-    dprintf(DBG_LIST_OPS, "%p: searching for %s\n", (void *) l, key);
+    dprintf(DBG_SET_OPS, "%p: searching for %s\n", (void *) l, key);
     cur = l->head;
     while (cur)
     {
         cmp = strcmp(key, cur->key);
         if (cmp == 0)
         {
-            dprintf(DBG_LIST_OPS, "   (found)\n");
+            dprintf(DBG_SET_OPS, "   (found)\n");
             return 1;
         }
         cur = cur->children[cmp > 0];
     }
-    dprintf(DBG_LIST_OPS, "   (not found)\n");
+    dprintf(DBG_SET_OPS, "   (not found)\n");
     return 0;
 }
 
-/* Like list_find, but returns the associated value, or NULL if not found.
+/* Like set_find, but returns the associated value, or NULL if not found.
  * Note that NULL does not necessarily mean not found, because the associated
  * value may be NULL.
  */
-void *list_get(const list *l, const char *key)
+void *set_get(const set *l, const char *key)
 {
     node *cur;
     int cmp;
 
-    dprintf(DBG_LIST_OPS, "%p: searching for %s\n", (void *) l, key);
+    dprintf(DBG_SET_OPS, "%p: searching for %s\n", (void *) l, key);
     cur = l->head;
     while (cur)
     {
         cmp = strcmp(key, cur->key);
         if (cmp == 0)
         {
-            dprintf(DBG_LIST_OPS, "   (found)\n");
+            dprintf(DBG_SET_OPS, "   (found)\n");
             return cur->value;
         }
         cur = cur->children[cmp > 0];
     }
-    dprintf(DBG_LIST_OPS, "   (not found)\n");
+    dprintf(DBG_SET_OPS, "   (not found)\n");
     return NULL;
 }
 
@@ -406,94 +410,94 @@ static void avl_dispose(node *root, int free_keys, int free_values)
     }
 }
 
-void list_dispose(list *l)
+void set_dispose(set *l)
 {
-    dprintf(DBG_LIST_OPS, "%p: disposing\n", (void *) l);
+    dprintf(DBG_SET_OPS, "%p: disposing\n", (void *) l);
     avl_dispose(l->head, 1, l->owns_values);
     l->head = NULL;
 }
 
-void list_free(list *l)
+void set_free(set *l)
 {
-    dprintf(DBG_LIST_OPS, "%p: freeing\n", (void *) l);
-    list_dispose(l);
+    dprintf(DBG_SET_OPS, "%p: freeing\n", (void *) l);
+    set_dispose(l);
     free(l);
 }
 
-static void avl_walk(const node *root, void (*walker)(const char *key, void *value, void *data), void *data)
+static void avl_walk(node *root, void (*walker)(const char *key, void **value, void *data), void *data)
 {
     if (root != NULL)
     {
         avl_walk(root->children[0], walker, data);
-        dprintf(DBG_LIST_WALKER, "Walking: %s\n", root->key);
-        walker(root->key, root->value, data);
+        dprintf(DBG_SET_WALKER, "Walking: %s\n", root->key);
+        walker(root->key, &root->value, data);
         avl_walk(root->children[1], walker, data);
     }
 }
 
-void list_walk(const list *l, void (*walker)(const char *key, void *value, void *data), void *data)
+void set_walk(set *l, void (*walker)(const char *key, void **value, void *data), void *data)
 {
-    dprintf(DBG_LIST_OPS, "%p: walker\n", (const void *) l);
+    dprintf(DBG_SET_OPS, "%p: walker\n", (const void *) l);
     avl_walk(l->head, walker, data);
 }
 
-static void merge_walker(const char *key, void *value, void *data)
+static void merge_walker(const char *key, void **value, void *data)
 {
-    list_insert((list *) data, key, value);
+    set_insert((set *) data, key, *value);
 }
 
-void list_merge(list *list1, const list *list2)
+void set_merge(set *set1, const set *set2)
 {
-    dprintf(DBG_LIST_OPS, "merging %p into %p\n", (const void *) list2, (void *) list1);
-    list_walk(list2, merge_walker, (void *) list1);
+    dprintf(DBG_SET_OPS, "merging %p into %p\n", (const void *) set2, (void *) set1);
+    set_walk((set *) set2, merge_walker, (void *) set1);
 }
 
-static void subtract_walker(const char *key, void *value, void *data)
+static void subtract_walker(const char *key, void **value, void *data)
 {
-    list_remove((list *) data, key);
+    set_remove((set *) data, key);
 }
 
-void list_subtract(list *list1, const list *list2)
+void set_subtract(set *set1, const set *set2)
 {
-    dprintf(DBG_LIST_OPS, "subtracting %p from %p\n", (const void *) list2, (void *) list1);
-    list_walk(list2, subtract_walker, (void *) list1);
+    dprintf(DBG_SET_OPS, "subtracting %p from %p\n", (const void *) set2, (void *) set1);
+    set_walk((set *) set2, subtract_walker, (void *) set1);
 }
 
 typedef struct
 {
-    const list *dict;
-    list *output;
+    const set *dict;
+    set *output;
 } mask_data;
 
-static void mask_walker(const char *key, void *value, void *data)
+static void mask_walker(const char *key, void **value, void *data)
 {
     const mask_data *d = (const mask_data *) data;
-    if (list_find(d->dict, key)) list_insert(d->output, key, value);
+    if (set_find(d->dict, key)) set_insert(d->output, key, *value);
 }
 
-static void mask_clear_value_walker(const char *key, void *value, void *data)
+static void mask_clear_value_walker(const char *key, void **value, void *data)
 {
     const mask_data *d = (const mask_data *) data;
-    if (value && !list_find(d->dict, key)) free(value);
+    if (*value && !set_find(d->dict, key)) free(*value);
 }
 
-void list_mask(list *list1, const list *list2)
+void set_mask(set *set1, const set *set2)
 {
     mask_data data;
 
-    dprintf(DBG_LIST_OPS, "masking %p with %p\n", (void *) list1, (const void *) list2);
-    data.dict = list2;
-    data.output = list_alloc(0);
-    list_walk(list1, mask_walker, &data);
+    dprintf(DBG_SET_OPS, "masking %p with %p\n", (void *) set1, (const void *) set2);
+    data.dict = set2;
+    data.output = set_alloc(0);
+    set_walk(set1, mask_walker, &data);
     /* If necessary, free the values that will no longer be present */
-    if (list1->owns_values)
+    if (set1->owns_values)
     {
-        list_walk(list1, mask_clear_value_walker, &data);
+        set_walk(set1, mask_clear_value_walker, &data);
         data.output->owns_values = 1;
-        list1->owns_values = 0;
+        set1->owns_values = 0;
     }
-    list_dispose(list1);
-    list1->head = data.output->head;
-    list1->owns_values = data.output->owns_values;
+    set_dispose(set1);
+    set1->head = data.output->head;
+    set1->owns_values = data.output->owns_values;
     free(data.output);
 }
