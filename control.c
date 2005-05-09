@@ -1,5 +1,5 @@
 /*
- $Id: control.c,v 1.7 2005/04/25 15:16:31 bruce Exp $
+ $Id$
 
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.
@@ -29,6 +29,7 @@
 
 #define _XOPEN_SOURCE
 #include <control.h>
+
 #if USING_JINAMP_CTL
 
 #include <sys/types.h>
@@ -117,4 +118,25 @@ int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wai
     return ret;
 }
 
-#endif /* USING_JINAMP_CONTROL */
+#else /* USING_JINAMP_CONTROL */
+
+int get_control_socket(int server)
+{
+    return -1;
+}
+
+void close_control_socket(int sock, int server)
+{
+}
+
+int send_control_packet(int socket, const command_t *command, size_t command_len, int wait, int toserver)
+{
+    return -1;
+}
+
+int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait, int server)
+{
+    return -1;
+}
+
+#endif /* !USING_JINAMP_CONTROL */

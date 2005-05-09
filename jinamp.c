@@ -94,10 +94,6 @@
 # define PLAYLIST_REGEX ".*\\.lst"
 #endif
 
-#if HAVE_SYS_IPC_H && HAVE_SYS_MSG_H
-# define USING_JINAMP_CTL 1
-#endif
-
 /* dynamic data */
 static pid_t playerpid = 0;
 static set *song_set = NULL;  /* Value is a song * pointer */
@@ -125,13 +121,11 @@ static void cleanup(void)
     signal(SIGTERM, SIG_DFL);
     signal(SIGQUIT, SIG_DFL);
     signal(SIGHUP, SIG_DFL);
-#if USING_JINAMP_CTL
     if (control_sock != -1)
     {
         close_control_socket(control_sock, 1);
         control_sock = -1;
     }
-#endif
 }
 
 /* Recursive function for parsing command line parameters. It allocates and fills in a
@@ -403,7 +397,6 @@ static void command_stop(void)
     exit(0);
 }
 
-#if USING_JINAMP_CTL
 /* jinamp-ctl sends lists of strings as a flat list, one string right after the next
  * using NULLs as separators. This function splits this back into an argv-style array,
  * returning the number of parameters. This may be less than cmd->argc if the array is
@@ -463,21 +456,16 @@ static void dispatch_command(const command_t *cur)
     default: abort();
     }
 }
-#endif /* USING_JINAMP_CTL */
 
 static void process_commands(void)
 {
-#if USING_JINAMP_CTL
     command_t *cur;
     int count;
     int broken;
-#endif
 
     while (1)
     {
-#if USING_JINAMP_CTL
         cur = (command_t *) malloc(sizeof(command_list_t)); /* FIXME: handle arbitrary sizes */
-#endif
         if (control_sock == -1)
         {
             count = -1;
@@ -486,13 +474,10 @@ static void process_commands(void)
         else
         {
             sigprocmask(SIG_SETMASK, &unblocked, NULL);
-#if USING_JINAMP_CTL
             count = receive_control_packet(control_sock, cur, sizeof(command_list_t), 1, 1); /* FIXME: arb sizes */
             broken = 0;
             if (count == -1 && errno != EINTR) broken = 1;
-#endif
             sigprocmask(SIG_SETMASK, &blocked, NULL);
-#if USING_JINAMP_CTL
             if (broken)
             {
                 /* assume that the control socket is now broken and stop using it */
@@ -502,24 +487,17 @@ static void process_commands(void)
                 close_control_socket(control_sock, 1);
                 control_sock = -1;
             }
-#endif /* USING_JINAMP_CTL */
         }
-#if USING_JINAMP_CTL
         if (count >= 0)
             dispatch_command(cur);
-#endif
         if (child_died)
         {
             while (waitpid(-1, NULL, WNOHANG) > 0);
             child_died = 0;
-#if USING_JINAMP_CTL
             free(cur);
-#endif
             return;
         }
-#if USING_JINAMP_CTL
         free(cur);
-#endif
     }
 }
 
@@ -549,18 +527,18 @@ static RETSIGTYPE fastquit(int sig)
 
 static RETSIGTYPE sigchld(int sig)
 {
-#if USING_JINAMP_CTL
     command_t wake;
-#endif
 
     child_died = 1;
-#if USING_JINAMP_CTL
+    /* Send a fake message. This will prevent a race condition on a
+     * SIGCHLD arriving immediately before we start listening on the
+     * control socket.
+     */
     if (control_sock != -1)
     {
         wake.command = COMMAND_WAKE;
-        send_control_packet(control_sock, &wake, sizeof(wake), 0, 1); /* FIXME: should we wait? */
+        send_control_packet(control_sock, &wake, sizeof(wake), 0, 1);
     }
-#endif
 }
 
 static void setsigs(void)
@@ -823,11 +801,7 @@ int main(int argc, char * const argv[])
 #endif
 
     /* the fun stuff */
-#if USING_JINAMP_CTL
     control_sock = get_control_socket(1);
-#else
-    control_sock = -1;
-#endif
 #if HAVE_ATEXIT
     atexit(cleanup);
 #endif

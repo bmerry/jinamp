@@ -1,5 +1,5 @@
 /*
- $Id: control.h,v 1.10 2005/04/25 15:16:31 bruce Exp $
+ $Id$
 
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.
@@ -33,10 +33,7 @@
 # define USING_JINAMP_CTL 1
 #endif
 
-#if USING_JINAMP_CTL
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
 
 typedef enum
 {
@@ -89,5 +86,4 @@ int send_control_packet(int socket, const command_t *command, size_t command_len
  */
 int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait, int server);
 
-#endif /* USING_JINAMP_CTL */
 #endif /* JINAMP_CONTROL_H */

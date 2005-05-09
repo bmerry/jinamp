@@ -1,5 +1,5 @@
 /*
- $Id: list.h 76 2005-04-25 15:16:38Z bruce $
+ $Id$
 
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.
