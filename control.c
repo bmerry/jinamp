@@ -86,7 +86,7 @@ void close_control_socket(int sock, int server)
         msgctl(sock, IPC_RMID, NULL);
 }
 
-int send_control_packet(int socket, const command_t *command, size_t command_len, int wait, int toserver)
+int send_control_packet(int socket, const struct command_t *command, size_t command_len, int wait, int toserver)
 {
     struct msgbuffer *msg;
     int ret;
@@ -103,7 +103,7 @@ int send_control_packet(int socket, const command_t *command, size_t command_len
     return ret;
 }
 
-int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait, int server)
+int receive_control_packet(int socket, struct command_t *buffer, size_t maxlen, int wait, int server)
 {
     struct msgbuffer *msg;
     int ret;
@@ -129,12 +129,12 @@ void close_control_socket(int sock, int server)
 {
 }
 
-int send_control_packet(int socket, const command_t *command, size_t command_len, int wait, int toserver)
+int send_control_packet(int socket, const struct command_t *command, size_t command_len, int wait, int toserver)
 {
     return -1;
 }
 
-int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait, int server)
+int receive_control_packet(int socket, struct command_t *buffer, size_t maxlen, int wait, int server)
 {
     return -1;
 }

@@ -1,5 +1,5 @@
 /*
- $Id: jinamp-ctl.c,v 1.9 2005/04/25 15:16:31 bruce Exp $
+ $Id$
 
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.
@@ -61,7 +61,7 @@ static void send_replace(int sock, int argc, const char *argv[])
 {
     int i;
     size_t count, total;
-    command_list_t rep;
+    struct command_list_t rep;
 
     rep.command = COMMAND_REPLACE;
     total = 0;
@@ -73,7 +73,7 @@ static void send_replace(int sock, int argc, const char *argv[])
         total += count;
     }
     rep.argc = i;
-    send_control_packet(sock, (command_t *) &rep, sizeof(rep) - sizeof(rep.argv) + total, 1, 1);
+    send_control_packet(sock, (struct command_t *) &rep, sizeof(rep) - sizeof(rep.argv) + total, 1, 1);
 }
 
 static RETSIGTYPE alarm_handler(int sig)
@@ -84,12 +84,12 @@ static RETSIGTYPE alarm_handler(int sig)
 
 static void do_query(int sock)
 {
-    command_t query;
-    command_string_t reply;
+    struct command_t query;
+    struct command_string_t reply;
 
     query.command = COMMAND_QUERY;
     send_control_packet(sock, &query, sizeof(query), 1, 1);
-    receive_control_packet(sock, (command_t *) &reply, sizeof(reply), 1, 0);
+    receive_control_packet(sock, (struct command_t *) &reply, sizeof(reply), 1, 0);
     reply.value[sizeof(reply.value) - 1] = '\0';
     printf("%s\n", reply.value);
 }
@@ -110,7 +110,7 @@ int main(int argc, const char *argv[])
 {
     int sock;
     int sent = 0;
-    command_t msg;
+    struct command_t msg;
 
     prepare_alarm();
     if (argc <= 1) show_usage();

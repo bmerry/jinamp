@@ -61,12 +61,13 @@
 
 #include <misc.h>
 #include <load.h>
-#include <set.h>
+#include <songset.h>
 #include <debug.h>
 
-static void read_list(const char *listname, set *names, set *done,
+static void read_list(const char *listname, struct songset *names,
+                      struct songset *done,
                       void *playlist_handle, void *exclude_handle,
-                      void *value)
+                      int order)
 {
     FILE *fd;
     char *buffer;
@@ -100,15 +101,16 @@ static void read_list(const char *listname, set *names, set *done,
         while (len >= 1 && (buffer[len - 1] == '\r' || buffer[len - 1] == '\n'))
             buffer[--len] = '\0';
 
-        read_object(buffer, names, done, playlist_handle, exclude_handle, value);
+        read_object(buffer, names, done, playlist_handle, exclude_handle, order);
     }
     fclose(fd);
     free(buffer);
 }
 
-static void read_directory(const char *dirname, set *names, set *done,
+static void read_directory(const char *dirname, struct songset *names,
+                           struct songset *done,
                            void *playlist_handle, void *exclude_handle,
-                           void *value)
+                           int order)
 {
     DIR *directory;
     struct dirent *entry;
@@ -138,21 +140,25 @@ static void read_directory(const char *dirname, set *names, set *done,
             if (dirname[0] != '\0' && dirname[strlen(dirname) - 1] != '/')
                 strcat(buffer, "/");
             strcat(buffer, entry->d_name);
-            read_object(buffer, names, done, playlist_handle, exclude_handle, value);
+            read_object(buffer, names, done, playlist_handle, exclude_handle, order);
         }
     if (buffer != NULL) free(buffer);
     closedir(directory);
 }
 
-void read_object(const char *file, set *names, set *done,
-                 void *playlist_handle, void *exclude_handle, void *value)
+void read_object(const char *file, struct songset *names,
+                 struct songset *done,
+                 void *playlist_handle, void *exclude_handle, int order)
 {
+    struct song cur;
     struct stat buf;
     int r;
     char *canon;
     int path_max;
 
     if (set_find(done, file)) return; /* already processed */
+    cur.name = (char *) file;
+    cur.order = order;
 
     /* check that there is something there */
     r = stat(file, &buf);
@@ -160,14 +166,14 @@ void read_object(const char *file, set *names, set *done,
     {
         printf("Warning: cannot access %s, skipping\n", file);
         /* avoid further errors */
-        set_insert(done, file, NULL);
+        set_insert(done, &cur);
         return;
     }
     if (access(file, R_OK))
     {
         printf("Warning: cannot read %s, skipping\n", file);
         /* avoid further errors */
-        set_insert(done, file, NULL);
+        set_insert(done, &cur);
         return;
     }
 
@@ -189,26 +195,27 @@ void read_object(const char *file, set *names, set *done,
 #else
     canon = duplicate(file);
 #endif
+    cur.name = canon;
 
     if (exclude_handle == NULL || regex_test(canon, exclude_handle) != 0)
     {
         if (S_ISDIR(buf.st_mode))
         {
-            set_insert(done, canon, NULL);
+            set_insert(done, &cur);
             dprintf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
-            read_directory(canon, names, done, playlist_handle, exclude_handle, value);
+            read_directory(canon, names, done, playlist_handle, exclude_handle, order);
         }
         else if (S_ISREG(buf.st_mode))
         {
             if (playlist_handle && regex_test(canon, playlist_handle) == 0)
             {
-                set_insert(done, canon, NULL);
+                set_insert(done, &cur);
                 dprintf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
-                read_list(canon, names, done, playlist_handle, exclude_handle, value);
+                read_list(canon, names, done, playlist_handle, exclude_handle, order);
             }
             else
             {
-                set_insert(names, canon, value);
+                set_insert(names, &cur);
                 dprintf(DBG_LOAD_SHOW, "%p: Added %s\n", (void *) names, canon);
             }
         }

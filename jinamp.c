@@ -68,8 +68,7 @@
 #include <stddef.h>
 
 #include <misc.h>
-#include <set.h>
-#include <songring.h>
+#include <songset.h>
 #include <load.h>
 #include <options.h>
 #include <control.h>
@@ -96,8 +95,7 @@
 
 /* dynamic data */
 static pid_t playerpid = 0;
-static set *song_set = NULL;  /* Value is a song * pointer */
-static song *songs = NULL;    /* Next song in the ring */
+static struct songset *songs;
 static int control_sock = -1;
 static long counter;          /* Number remaining to play */
 static size_t total_songs;
@@ -128,6 +126,20 @@ static void cleanup(void)
     }
 }
 
+static void shuffle_order(struct songset *songs)
+{
+    struct song *i;
+
+    srand(time(NULL));
+    if (!songs->head) return;
+    i = songs->head;
+    do
+    {
+        i->order = rand();
+        i = i->next;
+    } while (i != songs->head);
+}
+
 /* Recursive function for parsing command line parameters. It allocates and fills in a
  * set starting at `first' and continuing until the end of the expression, which is
  * determined by level (a terminator is end of parameters or an unmatched ')').
@@ -141,12 +153,12 @@ static void cleanup(void)
  * The index of the parameter AFTER the last one swallowed is returned in *end.
  * NULL is returned if the expression is invalid.
  */
-static set *read_argv(int argc, const char * const argv[], int first,
-                      int level, int *end,
-                      void *playlist_handle, void *exclude_handle)
+static struct songset *read_argv(int argc, const char * const argv[],
+                                 int first, int level, int *end,
+                                 void *playlist_handle, void *exclude_handle)
 {
     int i;
-    set *current, *next, *done;
+    struct songset *current, *next, *done;
     int op;  /* 0 = union, 1 = subtract, 2 = intersect */
 
     current = NULL;
@@ -182,7 +194,7 @@ static set *read_argv(int argc, const char * const argv[], int first,
             case ')':
                 if (level == 0) goto bailout;
                 if (op != 0) goto bailout;
-                if (current == NULL) current = set_alloc(0); /* handle () case */
+                if (current == NULL) current = set_alloc(); /* handle () case */
                 *end = i + ((level == 2) ? 0 : 1);
                 return current;
             }
@@ -203,10 +215,10 @@ static set *read_argv(int argc, const char * const argv[], int first,
             }
             else
             {
-                done = set_alloc(0);
-                next = set_alloc(0);
-                read_object(argv[i], next, done, playlist_handle, exclude_handle,
-                            ((char *) NULL) + i);
+                done = set_alloc();
+                next = set_alloc();
+                read_object(argv[i], next, done,
+                            playlist_handle, exclude_handle, i);
                 set_free(done);
             }
         }
@@ -245,38 +257,6 @@ bailout:
     return NULL;
 }
 
-static void flatten_walker(const char *name, void **value, void *data)
-{
-    song *self;
-
-    self = safe_malloc(sizeof(song));
-    self->name = name;
-    self->order = (const char *) *value - (const char *) NULL;
-    self->once = 0;
-    self->prev = NULL;
-    self->next = NULL;
-
-    *(song **) data = ring_append(*(song **) data, self);
-    *value = self;
-}
-
-static song *flatten_songs(set *song_set, int do_shuffle)
-{
-    song *ans = NULL, *i;
-
-    set_walk(song_set, flatten_walker, &ans);
-    if (do_shuffle)
-    {
-        i = ans;
-        do
-        {
-            i->order = rand();
-            i = i->next;
-        } while (i != ans);
-    }
-    return ans;
-}
-
 /* Take the command line options and expand to get playlist
  * `first' is the first argument to process (to work with getopt)
  */
@@ -300,12 +280,11 @@ static void populate(int argc, const char * const argv[], int first)
     else exclude_handle = NULL;
 
     /* we overwrite first simply because it is no longer needed */
-    if (song_set) set_free(song_set);
-    if (songs) ring_free(songs);
-    song_set = read_argv(argc, argv, first, 0, &first, playlist_handle, exclude_handle);
-    total_songs = set_count(song_set);
-    songs = flatten_songs(song_set, shuffle_flag);
-    songs = ring_sort(songs);
+    if (songs) set_free(songs);
+    songs = read_argv(argc, argv, first, 0, &first, playlist_handle, exclude_handle);
+    total_songs = set_size(songs);
+    if (shuffle_flag) shuffle_order(songs);
+    set_sort(songs);
 
     regex_done(playlist_handle);
     regex_done(exclude_handle);
@@ -317,7 +296,7 @@ static void populate(int argc, const char * const argv[], int first)
         exit(1);
     }
 
-    if (set_count(song_set) == 0)
+    if (set_empty(songs))
     {
         fprintf(stderr, "No songs to play!\n");
         cleanup();
@@ -340,14 +319,14 @@ static void playall(void)
         {
         case -1: perror("jinamp: fork"); cleanup(); exit(2); break;
         case 0:
-            dprintf(DBG_MISC, "exec'ing %s\n", player);
+            dprintf(DBG_MISC, "exec'ing %s %s\n", player, songs->head->name);
 #if DEBUG
             close(0);
             close(1);
             close(2);
             setsid();
 #endif
-            execl(player, player, songs->name, NULL);
+            execl(player, player, songs->head->name, NULL);
             cleanup();
             exit(2);
             break;
@@ -362,7 +341,7 @@ static void playall(void)
             if (counter == 0) break;
         }
 
-        songs = songs->next;
+        songs->head = songs->head->next;
     }
 }
 
@@ -402,7 +381,7 @@ static void command_stop(void)
  * returning the number of parameters. This may be less than cmd->argc if the array is
  * exhausted first. Return -1 on error.
  */
-static int unpack(const command_list_t *cmd, const char ***argv)
+static int unpack(const struct command_list_t *cmd, const char ***argv)
 {
     int i;
     const char *cur, *nxt;
@@ -428,11 +407,11 @@ static int unpack(const command_list_t *cmd, const char ***argv)
     return i;
 }
 
-static void dispatch_command(const command_t *cur)
+static void dispatch_command(const struct command_t *cur)
 {
     int argc;
     const char **argv;
-    command_string_t reply;
+    struct command_string_t reply;
 
     dprintf(DBG_CONTROL_DATA, "Got command %d\n", cur->command);
     switch (cur->command)
@@ -444,14 +423,14 @@ static void dispatch_command(const command_t *cur)
     case COMMAND_CONTINUE: command_continue(); break;
     case COMMAND_STOP: command_stop(); break;
     case COMMAND_REPLACE:
-        argc = unpack((const command_list_t *) cur, &argv);
+        argc = unpack((const struct command_list_t *) cur, &argv);
         if (argc != -1)
             populate(argc, argv, 0);
         break;
     case COMMAND_QUERY:
         reply.command = REPLY_QUERY;
-        my_strncpy(reply.value, songs->name, sizeof(reply.value));
-        send_control_packet(control_sock, (command_t *) &reply, (reply.value + strlen(reply.value) + 1) - (char *) &reply, 0, 0);
+        my_strncpy(reply.value, songs->head->name, sizeof(reply.value));
+        send_control_packet(control_sock, (struct command_t *) &reply, (reply.value + strlen(reply.value) + 1) - (char *) &reply, 0, 0);
         break;
     default: abort();
     }
@@ -459,13 +438,13 @@ static void dispatch_command(const command_t *cur)
 
 static void process_commands(void)
 {
-    command_t *cur;
+    struct command_t *cur;
     int count;
     int broken;
 
     while (1)
     {
-        cur = (command_t *) malloc(sizeof(command_list_t)); /* FIXME: handle arbitrary sizes */
+        cur = (struct command_t *) malloc(sizeof(struct command_list_t)); /* FIXME: handle arbitrary sizes */
         if (control_sock == -1)
         {
             count = -1;
@@ -474,7 +453,7 @@ static void process_commands(void)
         else
         {
             sigprocmask(SIG_SETMASK, &unblocked, NULL);
-            count = receive_control_packet(control_sock, cur, sizeof(command_list_t), 1, 1); /* FIXME: arb sizes */
+            count = receive_control_packet(control_sock, cur, sizeof(struct command_list_t), 1, 1); /* FIXME: arb sizes */
             broken = 0;
             if (count == -1 && errno != EINTR) broken = 1;
             sigprocmask(SIG_SETMASK, &blocked, NULL);
@@ -527,7 +506,7 @@ static RETSIGTYPE fastquit(int sig)
 
 static RETSIGTYPE sigchld(int sig)
 {
-    command_t wake;
+    struct command_t wake;
 
     child_died = 1;
     /* Send a fake message. This will prevent a race condition on a

@@ -51,23 +51,23 @@ typedef enum
 /* any payload appears in an extended form of the data structure, in the same
  * way sockaddr_t is extended for various address formats.
  */
-typedef struct
+struct command_t
 {
     command_type_t command;
-} command_t;
+};
 
-typedef struct
+struct command_list_t
 {
     command_type_t command;
     int argc;
     char argv[4000]; /* leaves lots of room in case padding happens */
-} command_list_t;
+};
 
-typedef struct
+struct command_string_t
 {
     command_type_t command;
     char value[4000];
-} command_string_t;
+};
 
 /* returns the socket ID on success, -1 on failure. */
 int get_control_socket(int server);
@@ -77,13 +77,13 @@ void close_control_socket(int sock, int server);
 /* Sends the given packet to the socket, which must already have been bound
  * and connected to the server
  */
-int send_control_packet(int socket, const command_t *command, size_t command_len, int wait, int toserver);
+int send_control_packet(int socket, const struct command_t *command, size_t command_len, int wait, int toserver);
 
 /* returns the control packet if there is one, or NULL if the queue
  * is empty. Caller must free the memory. len is the maximum length to
  * receive; beyond this truncation occurs. Returns the actual size on
  * success or -1 on failure.
  */
-int receive_control_packet(int socket, command_t *buffer, size_t maxlen, int wait, int server);
+int receive_control_packet(int socket, struct command_t *buffer, size_t maxlen, int wait, int server);
 
 #endif /* JINAMP_CONTROL_H */

@@ -26,14 +26,14 @@
 #ifndef JINAMP_LOAD_H
 #define JINAMP_LOAD_H
 
-#include <set.h>
+#include <songset.h>
 
 /* Adds the named file, directory or list recursively.
  * The `done' parameter is a list of things to ignore (intended for
  * directories and lists, which aren't already in names)
  * `value' is set as the value on files loaded into names
  */
-void read_object(const char *file, set *names, set *done,
-                 void *playlist_handle, void *exclude_handle, void *value);
+void read_object(const char *file, struct songset *names, struct songset *done,
+                 void *playlist_handle, void *exclude_handle, int order);
 
 #endif /* JINAMP_LOAD_H */
