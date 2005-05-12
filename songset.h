@@ -44,8 +44,8 @@ struct song
 {
     /* Public */
     char *name;                                /* filename; read-only */
+    long repeat;                               /* repeat count; -1 for inf */
     struct song *prev, *next;                  /* linked ring for order */
-    int order;                                 /* used internally by shuffler */
 
     /* Private stuff for AVL tree */
     struct song *children[2];          /* 0 is left, 1 is right */
@@ -56,6 +56,13 @@ struct songset
 {
     struct song *root;
     struct song *head;
+};
+
+enum songset_key
+{
+    KEY_ORIGINAL,        /* Original order (sort is a no-op) */
+    KEY_ALPHABETICAL,    /* By filename */
+    KEY_RANDOM           /* For shuffling */
 };
 
 /* allocates and returns an empty set */
@@ -74,19 +81,22 @@ int set_empty(const struct songset *set);
 struct song *set_insert(struct songset *set, const struct song *song);
 
 /* returns true if item found and removed, false if not found */
-int set_remove(struct songset *set, const char *item);
+int set_remove(struct songset *set, const char *name);
+
+/* like set_remove, but takes a song that must be in the set */
+void set_erase(struct songset *set, struct song *song);
 
 /* returns true iff item is in l */
-int set_find(const struct songset *set, const char *item);
+int set_find(const struct songset *set, const char *name);
+
+/* like set_find, but returns either the song or NULL */
+struct song *set_get(struct songset *set, const char *name);
 
 /* frees the set */
 void set_dispose(struct songset *set);
 
 /* calls set_dispose then frees the set structure itself */
 void set_free(struct songset *set);
-
-/* passes data to walker for every item in the set. value may be changed */
-void set_walk(struct songset *set, void (*walker)(struct song *song, void *data), void *data);
 
 /* merges set2 into set1 */
 void set_merge(struct songset *set1, const struct songset *set2);
@@ -97,7 +107,7 @@ void set_subtract(struct songset *set1, const struct songset *set2);
 /* removes anything from set1 not in set2 */
 void set_mask(struct songset *set1, const struct songset *set2);
 
-/* sorts set by the 'order' field */
-void set_sort(struct songset *set);
+/* sorts set by the specified field (see the enum at top) */
+void set_sort(struct songset *set, enum songset_key key);
 
 #endif /* JINAMP_SET_H */

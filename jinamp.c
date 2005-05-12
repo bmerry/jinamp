@@ -97,7 +97,6 @@
 static pid_t playerpid = 0;
 static struct songset *songs;
 static int control_sock = -1;
-static long counter;          /* Number remaining to play */
 static size_t total_songs;
 
 /* config data */
@@ -105,8 +104,8 @@ static char *player;
 static char *playlist_regex;
 static char *exclude_regex;
 static long delay = DEFAULT_DELAY;
-static long count = 0, repeat = 0;
-static int shuffle_flag = 1;
+static long count = -1, repeat = -1;
+static enum songset_key key = KEY_RANDOM;
 static int kill_signal = DEFAULT_KILL_SIGNAL;
 static int pause_signal = DEFAULT_PAUSE_SIGNAL;
 
@@ -124,20 +123,6 @@ static void cleanup(void)
         close_control_socket(control_sock, 1);
         control_sock = -1;
     }
-}
-
-static void shuffle_order(struct songset *songs)
-{
-    struct song *i;
-
-    srand(time(NULL));
-    if (!songs->head) return;
-    i = songs->head;
-    do
-    {
-        i->order = rand();
-        i = i->next;
-    } while (i != songs->head);
 }
 
 /* Recursive function for parsing command line parameters. It allocates and fills in a
@@ -218,7 +203,7 @@ static struct songset *read_argv(int argc, const char * const argv[],
                 done = set_alloc();
                 next = set_alloc();
                 read_object(argv[i], next, done,
-                            playlist_handle, exclude_handle, i);
+                            playlist_handle, exclude_handle);
                 set_free(done);
             }
         }
@@ -283,8 +268,7 @@ static void populate(int argc, const char * const argv[], int first)
     if (songs) set_free(songs);
     songs = read_argv(argc, argv, first, 0, &first, playlist_handle, exclude_handle);
     total_songs = set_size(songs);
-    if (shuffle_flag) shuffle_order(songs);
-    set_sort(songs);
+    set_sort(songs, key);
 
     regex_done(playlist_handle);
     regex_done(exclude_handle);
@@ -306,14 +290,39 @@ static void populate(int argc, const char * const argv[], int first)
 
 static void process_commands(void);
 
+static void set_counts(void)
+{
+    struct song *i;
+
+    if (count >= 0 && repeat == -1) repeat = 0;
+    i = songs->head;
+    do
+    {
+        i->repeat = repeat;
+        i = i->next;
+    } while (i != songs->head);
+}
+
 /* the main play loop */
-static void playall(void)
+static void play_all(void)
 {
     pid_t f;
+    long counter;
 
-    counter = total_songs * repeat + count;
-    while (1)
+    counter = count;
+    while (!set_empty(songs))
     {
+        if (songs->head->repeat >= 0)
+        {
+            if (counter > 0) counter--;
+            else if (songs->head->repeat > 0) songs->head->repeat--;
+            else
+            {
+                set_erase(songs, songs->head);
+                continue;
+            }
+        }
+
         f = fork();
         switch (f)
         {
@@ -335,19 +344,14 @@ static void playall(void)
             process_commands();
             sleep(delay);
         }
-        if (counter > 0)
-        {
-            counter--;
-            if (counter == 0) break;
-        }
 
-        songs->head = songs->head->next;
+        if (songs->head) songs->head = songs->head->next;
     }
 }
 
 static void command_last(void)
 {
-    counter = 1;
+    set_dispose(songs);
 }
 
 static void command_next(void)
@@ -684,6 +688,11 @@ static void repeat_callback(const char *argument, void *data)
     dprintf(DBG_CONFIG_INFO, "Using repeat: %ld\n", repeat);
 }
 
+static void no_shuffle_callback(const char *argument, void *data)
+{
+    key = KEY_ORIGINAL;
+}
+
 /* FreeBSD documents but does not provide required_argument and
  * no_argument, so we have to use the numeric versions.
  */
@@ -696,7 +705,7 @@ static int options(int argc, char * const argv[])
         {'h', "help", NULL, 0, show_help, NULL},
         {'c', "count", "count", 1, count_callback, NULL},
         {'r', "repeat", "repeat", 1, repeat_callback, NULL},
-        {'n', "no-shuffle", "no-shuffle", 0, invert_callback, &shuffle_flag},
+        {'n', "no-shuffle", "no-shuffle", 0, no_shuffle_callback, NULL},
         {'x', "exclude", "exclude", 1, string_callback, &exclude_regex},
         {'L', "playlist", "playlist", 1, string_callback, &playlist_regex},
         {'V', "version", NULL, 0, show_version, NULL},
@@ -740,6 +749,7 @@ int main(int argc, char * const argv[])
         setuid(getuid());
     }
 
+    srand(time(NULL));
     /* Process the command line options */
     first = options(argc, argv);
     if (first >= argc)
@@ -784,6 +794,7 @@ int main(int argc, char * const argv[])
 #if HAVE_ATEXIT
     atexit(cleanup);
 #endif
-    playall();
+    set_counts();
+    play_all();
     return 0;
 }

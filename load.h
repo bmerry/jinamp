@@ -34,6 +34,6 @@
  * `value' is set as the value on files loaded into names
  */
 void read_object(const char *file, struct songset *names, struct songset *done,
-                 void *playlist_handle, void *exclude_handle, int order);
+                 void *playlist_handle, void *exclude_handle);
 
 #endif /* JINAMP_LOAD_H */

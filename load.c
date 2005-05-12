@@ -66,8 +66,7 @@
 
 static void read_list(const char *listname, struct songset *names,
                       struct songset *done,
-                      void *playlist_handle, void *exclude_handle,
-                      int order)
+                      void *playlist_handle, void *exclude_handle)
 {
     FILE *fd;
     char *buffer;
@@ -101,7 +100,7 @@ static void read_list(const char *listname, struct songset *names,
         while (len >= 1 && (buffer[len - 1] == '\r' || buffer[len - 1] == '\n'))
             buffer[--len] = '\0';
 
-        read_object(buffer, names, done, playlist_handle, exclude_handle, order);
+        read_object(buffer, names, done, playlist_handle, exclude_handle);
     }
     fclose(fd);
     free(buffer);
@@ -109,8 +108,7 @@ static void read_list(const char *listname, struct songset *names,
 
 static void read_directory(const char *dirname, struct songset *names,
                            struct songset *done,
-                           void *playlist_handle, void *exclude_handle,
-                           int order)
+                           void *playlist_handle, void *exclude_handle)
 {
     DIR *directory;
     struct dirent *entry;
@@ -140,7 +138,7 @@ static void read_directory(const char *dirname, struct songset *names,
             if (dirname[0] != '\0' && dirname[strlen(dirname) - 1] != '/')
                 strcat(buffer, "/");
             strcat(buffer, entry->d_name);
-            read_object(buffer, names, done, playlist_handle, exclude_handle, order);
+            read_object(buffer, names, done, playlist_handle, exclude_handle);
         }
     if (buffer != NULL) free(buffer);
     closedir(directory);
@@ -148,7 +146,7 @@ static void read_directory(const char *dirname, struct songset *names,
 
 void read_object(const char *file, struct songset *names,
                  struct songset *done,
-                 void *playlist_handle, void *exclude_handle, int order)
+                 void *playlist_handle, void *exclude_handle)
 {
     struct song cur;
     struct stat buf;
@@ -158,7 +156,7 @@ void read_object(const char *file, struct songset *names,
 
     if (set_find(done, file)) return; /* already processed */
     cur.name = (char *) file;
-    cur.order = order;
+    cur.repeat = -1;
 
     /* check that there is something there */
     r = stat(file, &buf);
@@ -203,7 +201,7 @@ void read_object(const char *file, struct songset *names,
         {
             set_insert(done, &cur);
             dprintf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
-            read_directory(canon, names, done, playlist_handle, exclude_handle, order);
+            read_directory(canon, names, done, playlist_handle, exclude_handle);
         }
         else if (S_ISREG(buf.st_mode))
         {
@@ -211,7 +209,7 @@ void read_object(const char *file, struct songset *names,
             {
                 set_insert(done, &cur);
                 dprintf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
-                read_list(canon, names, done, playlist_handle, exclude_handle, order);
+                read_list(canon, names, done, playlist_handle, exclude_handle);
             }
             else
             {

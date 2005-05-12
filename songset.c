@@ -160,8 +160,11 @@ static void avl_assert_valid(const struct songset *l)
 {
     const char *first, *last;                       /* dummy */
     dprintf(DBG_SET_OPS, "%p: asserting AVL tree\n", (void *) l);
-    avl_assert_order(l->root, &first, &last);
-    avl_assert_depth(l->root);
+    if (l->root)
+    {
+        avl_assert_order(l->root, &first, &last);
+        avl_assert_depth(l->root);
+    }
 }
 
 static void print_set(const struct songset *l)
@@ -216,7 +219,6 @@ static struct song *clone_node(const struct song *node)
     clone->prev = clone->next = NULL;
 
     clone->name = duplicate(node->name);
-    clone->order = node->order;
     return clone;
 }
 
@@ -297,102 +299,128 @@ struct song *set_insert(struct songset *l, const struct song *song)
     return clone;
 }
 
-/* returns:
- * 0: not found
- * 1: removed
- * 2: removed, no further balancing required
- * If found, the removed item is not freed but merely placed into removed.
+/* Returns:
+ * 0: removed, no further balancing required
+ * 1: removed, possible balancing required
+ *
+ * The compare parameter may be set to -1 or 1 if the comparison is
+ * already known. 0 means unknown.
+ *
+ * The song is not actually freed, just unlinked from the tree. The
+ * caller unlinks from the ring.
  */
-static int avl_remove(struct song **root, const char *key,
-                      struct song **removed)
+static int avl_remove(struct song **root, struct song *song, int compare)
 {
-    int cmp;
-    int sub;                   /* return code from subcalls */
+    struct song *r;
+    int status;
     int i;
-    int old_depth;
-    struct song **child, *n, *tmp;
 
-    n = *root;
-    if (!n) return 0;
-    cmp = strcmp(key, n->name);
-    sub = -1;
-    if (cmp == 0)                        /* found it, now push it down the tree */
+    r = *root;
+    if (r == song)
     {
-        while (n->children[0] || n->children[1])
+        if (song->children[0] || song->children[1])
         {
-            i = n->children[0] ? 0 : 1;
-            child = &n->children[i];
+            int depth;
+            struct song **child, *c, *tmp;
+
+            i = song->children[0] ? 0 : 1;
+            child = &song->children[i];
             while ((*child)->children[!i])
                 child = &(*child)->children[!i];
-            tmp = (*child)->children[0]; (*child)->children[0] = n->children[0]; n->children[0] = tmp;
-            tmp = (*child)->children[1]; (*child)->children[1] = n->children[1]; n->children[1] = tmp;
-            old_depth = tmp->depth; (*child)->depth = n->depth; n->depth = old_depth;
-            *root = *child;
-            *child = n;
-            n = *root;
+            c = *child;
+            if (child == &song->children[i]) child = &c->children[i];
+
+            /* Swap the tree parts of the two structs, as well as the
+             * incoming pointers. The careful ordering, plus the if
+             * statement above, ensure that the case where child is
+             * a direct child of song is handled.
+             */
+            depth = song->depth; song->depth = c->depth; c->depth = depth;
+            tmp = song->children[0]; song->children[0] = c->children[0]; c->children[0] = tmp;
+            tmp = song->children[1]; song->children[1] = c->children[1]; c->children[1] = tmp;
+            *root = c;
+            *child = r;
+            r = c;
+
+            status = avl_remove(&r->children[i], song, i ? -1 : 1);
         }
-        *removed = n;
-        *root = NULL;
-        return 1;
+        else
+        {
+            *root = NULL;
+            return 1;
+        }
     }
     else
     {
-        i = cmp > 0;
-        sub = avl_remove(&n->children[i], key, removed);
-        if (sub == 1)                        /* may need to balance */
+        int c;
+
+        c = compare ? compare : strcmp(song->name, r->name);
+        i = c > 0;
+        status = avl_remove(&r->children[i], song, compare);
+    }
+
+    if (status)                        /* may need to balance */
+    {
+        int old_depth;
+
+        old_depth = r->depth;
+        if (TOO_SHALLOW(r, i))
         {
-            old_depth = n->depth;
-            if (TOO_SHALLOW(n, i))
-            {
-                if (GET_DEPTH(n->children[!i]->children[i]) > GET_DEPTH(n->children[i])
-                    && GET_DEPTH(n->children[!i]->children[!i]) == GET_DEPTH(n->children[i]))
-                    avl_double_rotate(root, !i);
-                else
-                    avl_single_rotate(root, !i);
-            }
+            if (GET_DEPTH(r->children[!i]->children[i]) > GET_DEPTH(r->children[i])
+                && GET_DEPTH(r->children[!i]->children[!i]) == GET_DEPTH(r->children[i]))
+                avl_double_rotate(root, !i);
             else
-                avl_fix_depth(n);
-            return (old_depth == n->depth) ? 2 : 1;
+                avl_single_rotate(root, !i);
         }
         else
-            return sub;
+            avl_fix_depth(r);
+        return old_depth != (*root)->depth;
     }
+    else
+        return 0;
+}
+
+void set_erase(struct songset *set, struct song *song)
+{
+    dprintf(DBG_SET_OPS, "%p: erasing %s\n", (void *) set, song->name);
+
+    avl_remove(&set->root, song, 0);
+    if (set->root == NULL) set->head = NULL;
+    else
+    {
+        song->prev->next = song->next;
+        song->next->prev = song->prev;
+        if (song == set->head) set->head = set->head->next;
+    }
+    free(song->name);
+    free(song);
+    print_set(set);
+    avl_assert_valid(set);
 }
 
 /* returns true if key found and removed, false if not found */
-int set_remove(struct songset *l, const char *key)
+int set_remove(struct songset *set, const char *key)
 {
-    int r;
-    struct song *removed;
+    struct song *song;
 
-    dprintf(DBG_SET_OPS, "%p: removing %s\n", (void *) l, key);
-    if (l->root == NULL)
-        r = 0;
+    dprintf(DBG_SET_OPS, "%p: removing %s\n", (void *) set, key);
+
+    song = set_get(set, key);
+    if (!song) return 0;
     else
-        r = (avl_remove(&l->root, key, &removed) != 0);
-    if (r)
     {
-        if (l->root == NULL) l->head = NULL;
-        else
-        {
-            removed->prev->next = removed->next;
-            removed->next->prev = removed->prev;
-            if (removed == l->head) l->head = l->head->next;
-        }
-        free(removed->name);
+        set_erase(set, song);
+        return 1;
     }
-    print_set(l);
-    avl_assert_valid(l);
-    return r;
 }
 
-int set_find(const struct songset *l, const char *key)
+int set_find(const struct songset *set, const char *key)
 {
     struct song *cur;
     int cmp;
 
-    dprintf(DBG_SET_OPS, "%p: searching for %s\n", (void *) l, key);
-    cur = l->root;
+    dprintf(DBG_SET_OPS, "%p: searching for %s\n", (void *) set, key);
+    cur = set->root;
     while (cur)
     {
         cmp = strcmp(key, cur->name);
@@ -408,13 +436,13 @@ int set_find(const struct songset *l, const char *key)
 }
 
 /* Like set_find, but returns the associated struct, or NULL */
-struct song *set_get(const struct songset *l, const char *key)
+struct song *set_get(struct songset *set, const char *key)
 {
     struct song *cur;
     int cmp;
 
-    dprintf(DBG_SET_OPS, "%p: searching for %s\n", (void *) l, key);
-    cur = l->root;
+    dprintf(DBG_SET_OPS, "%p: searching for %s\n", (void *) set, key);
+    cur = set->root;
     while (cur)
     {
         cmp = strcmp(key, cur->name);
@@ -429,43 +457,30 @@ struct song *set_get(const struct songset *l, const char *key)
     return NULL;
 }
 
-void set_dispose(struct songset *l)
+void set_dispose(struct songset *set)
 {
     struct song *i, *next;
 
-    dprintf(DBG_SET_OPS, "%p: disposing\n", (void *) l);
+    dprintf(DBG_SET_OPS, "%p: disposing\n", (void *) set);
 
-    if (l->head) l->head->prev->next = NULL;
-    i = l->head;
+    if (set->head) set->head->prev->next = NULL;
+    i = set->head;
     while (i)
     {
         next = i->next;
         free(i->name);
+        free(i);
         i = next;
     }
-    l->head = NULL;
-    l->root = NULL;
+    set->head = NULL;
+    set->root = NULL;
 }
 
-void set_free(struct songset *l)
+void set_free(struct songset *set)
 {
-    dprintf(DBG_SET_OPS, "%p: freeing\n", (void *) l);
-    set_dispose(l);
-    free(l);
-}
-
-void set_walk(struct songset *l, void (*walker)(struct song *, void *), void *data)
-{
-    struct song *i;
-
-    dprintf(DBG_SET_OPS, "%p: walker\n", (const void *) l);
-    if (!l->head) return;
-    i = l->head;
-    do
-    {
-        (*walker)(i, data);
-        i = i->next;
-    } while (i != l->head);
+    dprintf(DBG_SET_OPS, "%p: freeing\n", (void *) set);
+    set_dispose(set);
+    free(set);
 }
 
 void set_merge(struct songset *set1, const struct songset *set2)
@@ -510,7 +525,7 @@ void set_mask(struct songset *set1, const struct songset *set2)
         next = i->next;
         more = (next != set1->head);
         if (!set_find(set2, i->name))
-            set_remove(set1, i->name); /* FIXME: remove by node */
+            set_erase(set1, i);
         i = next;
     } while (more);
 }
@@ -540,12 +555,18 @@ static struct song *set_sort_append(struct song *ring, struct song *song)
 
 /* Does a recursive mergesort on the ring starting at 'ring', returning
  * the new first element.
+ *
+ * Note that while returning a random value for key comparison is
+ * normally a bad thing to do to a sorting algorithm (because it
+ * may introduce inconsistencies, mergesort is nice because it never
+ * performs comparisons that could lead to inconsistency.
  */
-static struct song *set_sort_merge(struct song *ring)
+static struct song *set_sort_merge(struct song *ring, enum songset_key key)
 {
     struct song *pivotl, *pivotr, *search, *last, **choice;
+    int compare = 0;
 
-    if (!ring || ring->next == ring) return ring; /* 0 or 1 element */
+    if (ring->next == ring) return ring; /* 1 element */
     /* Identify the middle by moving search at half the speed of pivot
      * until it reaches the end.
      */
@@ -565,16 +586,25 @@ static struct song *set_sort_merge(struct song *ring)
     last->next = pivotr;
     pivotr->prev = last;
 
-    pivotl = set_sort_merge(ring);
-    pivotr = set_sort_merge(pivotr);
+    pivotl = set_sort_merge(ring, key);
+    pivotr = set_sort_merge(pivotr, key);
 
     /* Merge */
     ring = NULL;
     while (pivotl || pivotr)
     {
-        if (pivotr == NULL) choice = &pivotl;
-        else if (pivotl == NULL) choice = &pivotr;
-        else choice = (pivotl->order <= pivotr->order) ? &pivotl : &pivotr;
+        if (pivotr == NULL) compare = 0;
+        else if (pivotl == NULL) compare = 1;
+        else switch(key)
+        {
+        case KEY_ORIGINAL:
+            compare = 0; break;
+        case KEY_ALPHABETICAL:
+            compare = strcmp(pivotl->name, pivotr->name) < 0; break;
+        case KEY_RANDOM:
+            compare = rand() < RAND_MAX / 2; break;
+        }
+        choice = compare ? &pivotr : &pivotl;
         search = *choice;
         *choice = set_sort_unlink(*choice);
         ring = set_sort_append(ring, search);
@@ -583,10 +613,8 @@ static struct song *set_sort_merge(struct song *ring)
     return ring;
 }
 
-/* We use a mergesort. On the plus side, it has constant memory overhead
- * for a linked ring.
- */
-void set_sort(struct songset *set)
+void set_sort(struct songset *set, enum songset_key key)
 {
-    set->head = set_sort_merge(set->head);
+    if (set->head && key != KEY_ORIGINAL)
+        set->head = set_sort_merge(set->head, key);
 }
