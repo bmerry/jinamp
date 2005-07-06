@@ -97,7 +97,6 @@
 static pid_t playerpid = 0;
 static struct songset *songs;
 static int control_sock = -1;
-static size_t total_songs;
 
 /* config data */
 static char *player;
@@ -140,7 +139,8 @@ static void cleanup(void)
  */
 static struct songset *read_argv(int argc, const char * const argv[],
                                  int first, int level, int *end,
-                                 void *playlist_handle, void *exclude_handle)
+                                 void *playlist_handle, void *exclude_handle,
+                                 struct songset *old)
 {
     int i;
     struct songset *current, *next, *done;
@@ -156,7 +156,7 @@ static struct songset *read_argv(int argc, const char * const argv[],
             switch (argv[i][0])
             {
             case '(':
-                next = read_argv(argc, argv, i + 1, 1, &i, playlist_handle, exclude_handle);
+                next = read_argv(argc, argv, i + 1, 1, &i, playlist_handle, exclude_handle, old);
                 i--; /* since we will do i++ in a minute */
                 if (!next) goto bailout;
                 break;
@@ -194,9 +194,14 @@ static struct songset *read_argv(int argc, const char * const argv[],
             }
             if (level < 2)
             {
-                next = read_argv(argc, argv, i, 2, &i, playlist_handle, exclude_handle);
+                next = read_argv(argc, argv, i, 2, &i, playlist_handle, exclude_handle, old);
                 if (!next) goto bailout;
                 i--;
+            }
+            else if (argv[i][0] == '$' && argv[i][1] == '\0' && old)
+            {
+                next = set_alloc();
+                set_merge(next, old);
             }
             else
             {
@@ -234,9 +239,6 @@ static struct songset *read_argv(int argc, const char * const argv[],
     *end = i;
     return current;
 
-    /* Ack! No! A goto! Bad Bruce. Ok this is necessary to prevent me writing
-     * the same code 7 or 8 times, and can't be put in a procedure because it
-     * has a return. */
 bailout:
     if (current) set_free(current);
     return NULL;
@@ -248,7 +250,9 @@ bailout:
 static void populate(int argc, const char * const argv[], int first)
 {
     void *playlist_handle, *exclude_handle;
+    struct songset *old;
 
+    old = songs;
     if (playlist_regex && *playlist_regex)
     {
         playlist_handle = regex_init(playlist_regex);
@@ -265,10 +269,9 @@ static void populate(int argc, const char * const argv[], int first)
     else exclude_handle = NULL;
 
     /* we overwrite first simply because it is no longer needed */
-    if (songs) set_free(songs);
-    songs = read_argv(argc, argv, first, 0, &first, playlist_handle, exclude_handle);
-    total_songs = set_size(songs);
-    set_sort(songs, key);
+    songs = read_argv(argc, argv, first, 0, &first,
+                      playlist_handle, exclude_handle, old);
+    if (old) set_free(old);
 
     regex_done(playlist_handle);
     regex_done(exclude_handle);
@@ -279,6 +282,8 @@ static void populate(int argc, const char * const argv[], int first)
         cleanup();
         exit(1);
     }
+
+    set_sort(songs, key);
 
     if (set_empty(songs))
     {
@@ -406,7 +411,7 @@ static int unpack(const struct command_list_t *cmd, const char ***argv)
         if (nxt >= cmd->argv + sizeof(cmd->argv)) break;
         (*argv)[i] = cur;
         dprintf(DBG_CONTROL_DATA, "unpack %d: %s\n", i, cur);
-        cur = nxt;
+        cur = nxt + 1;
     }
     return i;
 }

@@ -1,6 +1,10 @@
 * Brought back no-shuffle from the dead
 * Fixed memory-leak in 'jinamp-ctl replace' handling
-* Renamed 'list' to 'set' to replace its true purpose
+* Rewrote the song management code to use a single structure to hold
+  both set and linked ring information
+* Redesigned -r and -c handling to work better with dynamic updates to
+  the list
+* Added support for passing '$' to jinamp-ctl replace to get original set
 * Changed the code indenting
 * Sprinkled on some 'static' and 'const' keywords
 * Updated copyright notices to include 2005

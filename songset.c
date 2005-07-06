@@ -219,6 +219,7 @@ static struct song *clone_node(const struct song *node)
     clone->prev = clone->next = NULL;
 
     clone->name = duplicate(node->name);
+    clone->repeat = node->repeat;
     return clone;
 }
 
