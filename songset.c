@@ -38,6 +38,7 @@
 #if HAVE_SYS_TYPES_H
 # include <sys/types.h>
 #endif
+#include <stddef.h>
 
 #include <songset.h>
 #include <misc.h>
@@ -559,16 +560,17 @@ static struct song *set_sort_append(struct song *ring, struct song *song)
  *
  * Note that while returning a random value for key comparison is
  * normally a bad thing to do to a sorting algorithm (because it
- * may introduce inconsistencies, mergesort is nice because it never
+ * may introduce inconsistencies), mergesort is nice because it never
  * performs comparisons that could lead to inconsistency.
  */
 static struct song *set_sort_merge(struct song *ring, enum songset_key key)
 {
     struct song *pivotl, *pivotr, *search, *last, **choice;
+    size_t size_left = 0, size_right = 0;
     int compare = 0;
 
     if (ring->next == ring) return ring; /* 1 element */
-    /* Identify the middle by moving search at half the speed of pivot
+    /* Identify the middle by moving search at half the speed of search
      * until it reaches the end.
      */
     last = ring->prev;
@@ -578,7 +580,11 @@ static struct song *set_sort_merge(struct song *ring, enum songset_key key)
     {
         pivotl = pivotl->next;
         search = search->next->next;
+        size_left++;
+        size_right++;
     }
+    size_left++;
+    if (search != last) size_right++;
     pivotr = pivotl->next;
 
     /* Split into two separate rings to be recursed upon */
@@ -594,8 +600,8 @@ static struct song *set_sort_merge(struct song *ring, enum songset_key key)
     ring = NULL;
     while (pivotl || pivotr)
     {
-        if (pivotr == NULL) compare = 0;
-        else if (pivotl == NULL) compare = 1;
+        if (pivotr == NULL) compare = 1;
+        else if (pivotl == NULL) compare = 0;
         else switch(key)
         {
         case KEY_ORIGINAL:
@@ -603,9 +609,10 @@ static struct song *set_sort_merge(struct song *ring, enum songset_key key)
         case KEY_ALPHABETICAL:
             compare = strcmp(pivotl->name, pivotr->name) < 0; break;
         case KEY_RANDOM:
-            compare = rand() < RAND_MAX / 2; break;
+            compare = rand() % (size_left + size_right) < size_left; break;
         }
-        choice = compare ? &pivotr : &pivotl;
+        choice = compare ? &pivotl : &pivotr;
+        if (compare) size_left--; else size_right--;
         search = *choice;
         *choice = set_sort_unlink(*choice);
         ring = set_sort_append(ring, search);
