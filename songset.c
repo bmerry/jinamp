@@ -266,7 +266,7 @@ static int avl_insert(struct song **root,
     return 0;
 }
 
-/* returns the new node for successful insert, NULL for duplicate
+/* Returns the new node for successful insert, NULL for duplicate
  * The passed struct is copied and may be freed afterwards, regardless
  * of whether it was inserted.
  */
@@ -413,6 +413,25 @@ int set_remove(struct songset *set, const char *key)
     {
         set_erase(set, song);
         return 1;
+    }
+}
+
+void set_front(struct songset *set, struct song *song)
+{
+    dprintf(DBG_SET_OPS, "%p: moving %s to front\n", (void *) set, song->name);
+
+    if (song != set->head)
+    {
+        /* Remove from current location */
+        song->prev->next = song->next;
+        song->next->prev = song->prev;
+
+        /* Insert at head */
+        song->next = set->head;
+        song->prev = set->head->prev;
+        set->head->prev->next = song;
+        set->head->prev = song;
+        set->head = song;
     }
 }
 

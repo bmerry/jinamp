@@ -53,17 +53,18 @@ static void show_usage(void)
     fprintf(stderr, "pause\t\tPause current file\n");
     fprintf(stderr, "continue\tResume current file\n");
     fprintf(stderr, "replace\tReplace play list with command line arguments\n");
+    fprintf(stderr, "enqueue\tAdd/move arguments to front of play list\n");
     fprintf(stderr, "query\tReturns the filename of the currently playing file\n");
     exit(1);
 }
 
-static void send_replace(int sock, int argc, const char *argv[])
+static void send_list(command_type_t command, int sock, int argc, const char *argv[])
 {
     int i;
     size_t count, total;
     struct command_list_t rep;
 
-    rep.command = COMMAND_REPLACE;
+    rep.command = command;
     total = 0;
     for (i = 0; i < argc; i++)
     {
@@ -134,7 +135,12 @@ int main(int argc, const char *argv[])
         msg.command = COMMAND_STOP;
     else if (!strcmp(argv[1], "replace"))
     {
-        send_replace(sock, argc - 2, argv + 2);
+        send_list(COMMAND_REPLACE, sock, argc - 2, argv + 2);
+        sent = 1;
+    }
+    else if (!strcmp(argv[1], "enqueue"))
+    {
+        send_list(COMMAND_ENQUEUE, sock, argc - 2, argv + 2);
         sent = 1;
     }
     else if (!strcmp(argv[1], "query"))

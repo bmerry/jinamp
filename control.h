@@ -45,7 +45,8 @@ typedef enum
     COMMAND_STOP,
     COMMAND_REPLACE,
     COMMAND_QUERY,
-    REPLY_QUERY
+    REPLY_QUERY,
+    COMMAND_ENQUEUE
 } command_type_t;
 
 /* any payload appears in an extended form of the data structure, in the same

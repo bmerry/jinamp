@@ -244,15 +244,15 @@ bailout:
     return NULL;
 }
 
-/* Take the command line options and expand to get playlist
- * `first' is the first argument to process (to work with getopt)
+/* The parent function to read_argv, that handles the regexes and
+ * sorting.
  */
-static void populate(int argc, const char * const argv[], int first)
+static struct songset *get_songset(int argc, const char * const argv[],
+                                   int *end, struct songset *old)
 {
     void *playlist_handle, *exclude_handle;
-    struct songset *old;
+    struct songset *current;
 
-    old = songs;
     if (playlist_regex && *playlist_regex)
     {
         playlist_handle = regex_init(playlist_regex);
@@ -268,13 +268,26 @@ static void populate(int argc, const char * const argv[], int first)
     }
     else exclude_handle = NULL;
 
-    /* we overwrite first simply because it is no longer needed */
-    songs = read_argv(argc, argv, first, 0, &first,
-                      playlist_handle, exclude_handle, old);
-    if (old) set_free(old);
+    current = read_argv(argc, argv, 0, 0, end,
+                        playlist_handle, exclude_handle, old);
 
     regex_done(playlist_handle);
     regex_done(exclude_handle);
+    if (!current) return NULL;
+    set_sort(current, key);
+    return current;
+}
+
+/* Take the command line options and expand to get playlist
+ */
+static void populate(int argc, const char * const argv[])
+{
+    struct songset *old;
+    int end;
+
+    old = songs;
+    songs = get_songset(argc, argv, &end, old);
+    if (old) set_free(old);
 
     if (!songs)
     {
@@ -282,9 +295,6 @@ static void populate(int argc, const char * const argv[], int first)
         cleanup();
         exit(1);
     }
-
-    set_sort(songs, key);
-
     if (set_empty(songs))
     {
         fprintf(stderr, "No songs to play!\n");
@@ -416,10 +426,44 @@ static int unpack(const struct command_list_t *cmd, const char ***argv)
     return i;
 }
 
-static void dispatch_command(const struct command_t *cur)
+static void command_replace(const struct command_list_t *cmd)
 {
     int argc;
     const char **argv;
+
+    argc = unpack(cmd, &argv);
+    if (argc != -1)
+    {
+        populate(argc, argv);
+        /* FIXME: repeat counts will be wrong */
+    }
+}
+
+static void command_enqueue(const struct command_list_t *cmd)
+{
+    int argc;
+    int end;
+    const char **argv;
+    struct songset *extra;
+    struct song *i;
+
+    argc = unpack(cmd, &argv);
+    if (argc != -1)
+    {
+        extra = get_songset(argc, argv, &end, songs);
+        set_merge(songs, extra);
+        i = extra->head->prev;
+        do
+        {
+            set_front(songs, set_get(songs, i->name));
+            i = i->prev;
+        } while (i != extra->head->prev);
+        set_dispose(extra);
+    }
+}
+
+static void dispatch_command(const struct command_t *cur)
+{
     struct command_string_t reply;
 
     dprintf(DBG_CONTROL_DATA, "Got command %d\n", cur->command);
@@ -432,9 +476,10 @@ static void dispatch_command(const struct command_t *cur)
     case COMMAND_CONTINUE: command_continue(); break;
     case COMMAND_STOP: command_stop(); break;
     case COMMAND_REPLACE:
-        argc = unpack((const struct command_list_t *) cur, &argv);
-        if (argc != -1)
-            populate(argc, argv, 0);
+        command_replace((const struct command_list_t *) cur);
+        break;
+    case COMMAND_ENQUEUE:
+        command_enqueue((const struct command_list_t *) cur);
         break;
     case COMMAND_QUERY:
         reply.command = REPLY_QUERY;
@@ -762,7 +807,7 @@ int main(int argc, char * const argv[])
 
     /* load the songs from the command line */
     if (first == 0) first = 1;
-    populate(argc, (const char * const *) argv, first);
+    populate(argc - first, (const char * const *) argv + first);
 
     /* background ourselves */
 #ifndef DEBUG

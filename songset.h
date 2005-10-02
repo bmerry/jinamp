@@ -27,6 +27,10 @@
  * \brief set management
  * This file declares all the set management code implemented in
  * songset.c (creation, search, iteration, intersection etc).
+ *
+ * A songset is a doubly-linked ring with indexed unique elements. The
+ * order in the linked ring is user defined, while the index uses an AVL
+ * tree ordered by name.
  */
 
 #ifndef JINAMP_SONGSET_H
@@ -48,7 +52,7 @@ struct song
     struct song *prev, *next;                  /* linked ring for order */
 
     /* Private stuff for AVL tree */
-    struct song *children[2];          /* 0 is left, 1 is right */
+    struct song *children[2];                  /* 0 is left, 1 is right */
     int depth;
 };
 
@@ -77,7 +81,9 @@ size_t set_size(const struct songset *set);
 /* True if the set is empty */
 int set_empty(const struct songset *set);
 
-/* returns true for successful insert, false for duplicate (but value is still set) */
+/* Returns true for successful insert, false for duplicate (but value is still set).
+ * The new element (if any) is placed at the end of the ring.
+ */
 struct song *set_insert(struct songset *set, const struct song *song);
 
 /* returns true if item found and removed, false if not found */
@@ -85,6 +91,9 @@ int set_remove(struct songset *set, const char *name);
 
 /* like set_remove, but takes a song that must be in the set */
 void set_erase(struct songset *set, struct song *song);
+
+/* Moves song to front. It must already be in the set. */
+void set_front(struct songset *set, struct song *song);
 
 /* returns true iff item is in l */
 int set_find(const struct songset *set, const char *name);
