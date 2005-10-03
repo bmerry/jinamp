@@ -589,7 +589,7 @@ static struct song *set_sort_merge(struct song *ring, enum songset_key key)
     int compare = 0;
 
     if (ring->next == ring) return ring; /* 1 element */
-    /* Identify the middle by moving search at half the speed of search
+    /* Identify the middle by moving search at twice the speed of pivotl
      * until it reaches the end.
      */
     last = ring->prev;

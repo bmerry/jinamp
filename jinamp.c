@@ -94,8 +94,8 @@
 #endif
 
 /* dynamic data */
-static pid_t playerpid = 0;
-static struct songset *songs;
+static pid_t player_pid = 0;
+static struct songset *songs, *request;
 static int control_sock = -1;
 
 /* config data */
@@ -323,17 +323,23 @@ static void play_all(void)
 {
     pid_t f;
     long counter;
+    struct song *cur;
+    struct songset *set;
 
     counter = count;
-    while (!set_empty(songs))
+    while (!set_empty(request) || !set_empty(songs))
     {
-        if (songs->head->repeat >= 0)
+        if (!set_empty(request)) set = request;
+        else set = songs;
+        cur = set->head;
+
+        if (cur->repeat >= 0)
         {
             if (counter > 0) counter--;
-            else if (songs->head->repeat > 0) songs->head->repeat--;
+            else if (cur->repeat > 0) cur->repeat--;
             else
             {
-                set_erase(songs, songs->head);
+                set_erase(set, cur);
                 continue;
             }
         }
@@ -343,24 +349,26 @@ static void play_all(void)
         {
         case -1: perror("jinamp: fork"); cleanup(); exit(2); break;
         case 0:
-            dprintf(DBG_MISC, "exec'ing %s %s\n", player, songs->head->name);
+            dprintf(DBG_MISC, "exec'ing %s %s\n", player, cur->name);
 #if DEBUG
             close(0);
             close(1);
             close(2);
             setsid();
 #endif
-            execl(player, player, songs->head->name, NULL);
+            execl(player, player, cur->name, NULL);
             cleanup();
             exit(2);
             break;
         default:
-            playerpid = f;
+            player_pid = f;
             process_commands();
             sleep(delay);
         }
 
-        if (songs->head) songs->head = songs->head->next;
+        set->head = set->head->next;
+        if (set == request)
+            set_erase(set, cur);
     }
 }
 
@@ -371,21 +379,21 @@ static void command_last(void)
 
 static void command_next(void)
 {
-    if (playerpid)
+    if (player_pid)
     {
-        kill(playerpid, kill_signal);
-        kill(playerpid, SIGCONT); /* in case it was paused */
+        kill(player_pid, kill_signal);
+        kill(player_pid, SIGCONT); /* in case it was paused */
     }
 }
 
 static void command_pause(void)
 {
-    if (playerpid) kill(playerpid, pause_signal);
+    if (player_pid) kill(player_pid, pause_signal);
 }
 
 static void command_continue(void)
 {
-    if (playerpid) kill(playerpid, SIGCONT);
+    if (player_pid) kill(player_pid, SIGCONT);
 }
 
 static void command_stop(void)
@@ -434,8 +442,9 @@ static void command_replace(const struct command_list_t *cmd)
     argc = unpack(cmd, &argv);
     if (argc != -1)
     {
-        populate(argc, argv);
         /* FIXME: repeat counts will be wrong */
+        populate(argc, argv);
+        set_dispose(request);
     }
 }
 
@@ -445,20 +454,13 @@ static void command_enqueue(const struct command_list_t *cmd)
     int end;
     const char **argv;
     struct songset *extra;
-    struct song *i;
 
     argc = unpack(cmd, &argv);
     if (argc != -1)
     {
         extra = get_songset(argc, argv, &end, songs);
-        set_merge(songs, extra);
-        i = extra->head->prev;
-        do
-        {
-            set_front(songs, set_get(songs, i->name));
-            i = i->prev;
-        } while (i != extra->head->prev);
-        set_dispose(extra);
+        set_merge(request, extra);
+        set_free(extra);
     }
 }
 
@@ -808,6 +810,7 @@ int main(int argc, char * const argv[])
     /* load the songs from the command line */
     if (first == 0) first = 1;
     populate(argc - first, (const char * const *) argv + first);
+    request = set_alloc();
 
     /* background ourselves */
 #ifndef DEBUG
