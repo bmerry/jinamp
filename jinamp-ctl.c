@@ -47,14 +47,14 @@ static void show_usage(void)
 {
     fprintf(stderr, "Usage: jinamp-ctl <command>\n\n");
     fprintf(stderr, "Commands are:\n");
-    fprintf(stderr, "next\t\tskip remainer of current file\n");
-    fprintf(stderr, "stop\t\tquit immediately\n");
-    fprintf(stderr, "last\t\tquit at end of current file\n");
+    fprintf(stderr, "next\t\tSkip remainer of current file\n");
+    fprintf(stderr, "stop\t\tQuit immediately\n");
+    fprintf(stderr, "last\t\tQuit at end of current file\n");
     fprintf(stderr, "pause\t\tPause current file\n");
     fprintf(stderr, "continue\tResume current file\n");
-    fprintf(stderr, "replace\tReplace play list with command line arguments\n");
-    fprintf(stderr, "enqueue\tAdd/move arguments to front of play list\n");
-    fprintf(stderr, "query\tReturns the filename of the currently playing file\n");
+    fprintf(stderr, "replace\t\tReplace play list with command line arguments\n");
+    fprintf(stderr, "enqueue\t\tAdd/move arguments to front of play list\n");
+    fprintf(stderr, "query\t\tReturns the filename of the currently playing file\n");
     exit(1);
 }
 

@@ -156,7 +156,7 @@ void read_object(const char *file, struct songset *names,
 
     if (set_find(done, file)) return; /* already processed */
     cur.name = (char *) file;
-    cur.repeat = -1;
+    cur.repeat = 0;
 
     /* check that there is something there */
     r = stat(file, &buf);

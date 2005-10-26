@@ -48,7 +48,7 @@ struct song
 {
     /* Public */
     char *name;                                /* filename; read-only */
-    long repeat;                               /* repeat count; -1 for inf */
+    long repeat;                               /* number of times played */
     struct song *prev, *next;                  /* linked ring for order */
 
     /* Private stuff for AVL tree */

@@ -305,44 +305,18 @@ static void populate(int argc, const char * const argv[])
 
 static void process_commands(void);
 
-static void set_counts(void)
-{
-    struct song *i;
-
-    if (count >= 0 && repeat == -1) repeat = 0;
-    i = songs->head;
-    do
-    {
-        i->repeat = repeat;
-        i = i->next;
-    } while (i != songs->head);
-}
-
 /* the main play loop */
 static void play_all(void)
 {
     pid_t f;
-    long counter;
     struct song *cur;
     struct songset *set;
 
-    counter = count;
-    while (!set_empty(request) || !set_empty(songs))
+    while (count != 0 && (!set_empty(request) || !set_empty(songs)))
     {
         if (!set_empty(request)) set = request;
         else set = songs;
         cur = set->head;
-
-        if (cur->repeat >= 0)
-        {
-            if (counter > 0) counter--;
-            else if (cur->repeat > 0) cur->repeat--;
-            else
-            {
-                set_erase(set, cur);
-                continue;
-            }
-        }
 
         f = fork();
         switch (f)
@@ -366,15 +340,17 @@ static void play_all(void)
             sleep(delay);
         }
 
+        if (count > 0) count--;
+        cur->repeat++;
         set->head = set->head->next;
-        if (set == request)
+        if (set == request || cur->repeat == repeat)
             set_erase(set, cur);
     }
 }
 
 static void command_last(void)
 {
-    set_dispose(songs);
+    count = 0;
 }
 
 static void command_next(void)
@@ -697,18 +673,18 @@ static void count_callback(const char *argument, void *data)
     if (*check)
     {
         printf("Count is not a valid integer, using infinite repeat\n");
-        count = 0;
+        count = -1;
     }
     if (count == LONG_MAX && errno == ERANGE)
     {
         printf("Count overflowed, using infinite repeat\n");
-        count = 0;
+        count = -1;
     }
 #endif
     if (count < 0)
     {
         printf("Count cannot be negative, using infinite repeat\n");
-        count = 0;
+        count = -1;
     }
     dprintf(DBG_CONFIG_INFO, "Using count: %ld\n", count);
 }
@@ -724,18 +700,18 @@ static void repeat_callback(const char *argument, void *data)
     if (*check)
     {
         printf("Repeat is not a valid integer, using infinite repeat\n");
-        repeat = 0;
+        repeat = -1;
     }
     if (repeat == LONG_MAX && errno == ERANGE)
     {
         printf("Repeat overflowed, using infinite repeat\n");
-        repeat = 0;
+        repeat = -1;
     }
 #endif
     if (repeat < 0)
     {
         printf("Repeat cannot be negative, using infinite repeat\n");
-        repeat = 0;
+        repeat = -1;
     }
     dprintf(DBG_CONFIG_INFO, "Using repeat: %ld\n", repeat);
 }
@@ -847,7 +823,6 @@ int main(int argc, char * const argv[])
 #if HAVE_ATEXIT
     atexit(cleanup);
 #endif
-    set_counts();
     play_all();
     return 0;
 }
