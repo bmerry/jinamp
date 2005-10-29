@@ -72,10 +72,10 @@ appreciate it.
 
 Q: Are there binaries available?
 
-A: You can download Debian binaries from the same place you got the source.
-If you are interested in creating binary packages for other operating
-systems (e.g. Red Hat or the ports collection) I'll be very happy to
-put them on the website.
+A: Unfortunately not. There used to be Debian binaries, but as I'm no
+longer using Debian I have no way to test binaries. If you are
+interested in creating binary packages for your operating system
+I'll be very happy to put them on the website.
 
 -----------
 Legal stuff

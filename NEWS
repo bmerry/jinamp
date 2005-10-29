@@ -1,6 +1,14 @@
+2005-09-28 jinamp 1.0.5
+
 This version adds some minor improvements that I've been meaning to make
 for years and never gotten around to. In particular
 * --no-shuffle returns, and now actually does something
+* jinamp-ctl can insert songs to be played once, then return to the
+  regular playlist
+Debian support has ceased as I've switched to Gentoo, although the
+control files are still in place. If there are any Debian developers
+out there who use jinamp, I'd welcome updates to the debian/
+subdirectory.
 
 2004-06-15 jinamp 1.0
 
