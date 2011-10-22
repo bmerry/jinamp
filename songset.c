@@ -51,14 +51,14 @@ struct songset *set_alloc(void)
 {
     struct songset *tmp = (struct songset *) safe_malloc(sizeof(struct songset));
 
-    dprintf(DBG_SET_OPS, "%p: set created\n", (void *) tmp);
+    dbg_printf(DBG_SET_OPS, "%p: set created\n", (void *) tmp);
     set_init(tmp);
     return tmp;
 }
 
 void set_init(struct songset *l)
 {
-    dprintf(DBG_SET_OPS, "%p: set initialised\n", (void *) l);
+    dbg_printf(DBG_SET_OPS, "%p: set initialised\n", (void *) l);
     l->root = NULL;
     l->head = NULL;
 }
@@ -152,7 +152,7 @@ static void avl_assert_depth(const struct song *root)
 static void avl_print_tree(const struct song *root, int offset)
 {
     if (root->children[0]) avl_print_tree(root->children[0], offset + 3);
-    dprintf(DBG_SET_SHOW, "%*c%s\n", offset, ' ', root->name);
+    dbg_printf(DBG_SET_SHOW, "%*c%s\n", offset, ' ', root->name);
     if (root->children[1]) avl_print_tree(root->children[1], offset + 3);
 }
 
@@ -160,7 +160,7 @@ static void avl_print_tree(const struct song *root, int offset)
 static void avl_assert_valid(const struct songset *l)
 {
     const char *first, *last;                       /* dummy */
-    dprintf(DBG_SET_OPS, "%p: asserting AVL tree\n", (void *) l);
+    dbg_printf(DBG_SET_OPS, "%p: asserting AVL tree\n", (void *) l);
     if (l->root)
     {
         avl_assert_order(l->root, &first, &last);
@@ -170,7 +170,7 @@ static void avl_assert_valid(const struct songset *l)
 
 static void print_set(const struct songset *l)
 {
-    dprintf(DBG_SET_SHOW, "Printing set %p\n", (void *) l);
+    dbg_printf(DBG_SET_SHOW, "Printing set %p\n", (void *) l);
     if (debug_flags && DBG_SET_SHOW && l->root)
         avl_print_tree(l->root, 2);
 }
@@ -275,7 +275,7 @@ struct song *set_insert(struct songset *l, const struct song *song)
     struct song *clone = NULL;
     int r;
 
-    dprintf(DBG_SET_OPS, "%p: inserting %s\n", (void *) l, song->name);
+    dbg_printf(DBG_SET_OPS, "%p: inserting %s\n", (void *) l, song->name);
 
     if (l->root == NULL)
     {
@@ -384,7 +384,7 @@ static int avl_remove(struct song **root, struct song *song, int compare)
 
 void set_erase(struct songset *set, struct song *song)
 {
-    dprintf(DBG_SET_OPS, "%p: erasing %s\n", (void *) set, song->name);
+    dbg_printf(DBG_SET_OPS, "%p: erasing %s\n", (void *) set, song->name);
 
     avl_remove(&set->root, song, 0);
     if (set->root == NULL) set->head = NULL;
@@ -405,7 +405,7 @@ int set_remove(struct songset *set, const char *key)
 {
     struct song *song;
 
-    dprintf(DBG_SET_OPS, "%p: removing %s\n", (void *) set, key);
+    dbg_printf(DBG_SET_OPS, "%p: removing %s\n", (void *) set, key);
 
     song = set_get(set, key);
     if (!song) return 0;
@@ -418,7 +418,7 @@ int set_remove(struct songset *set, const char *key)
 
 void set_front(struct songset *set, struct song *song)
 {
-    dprintf(DBG_SET_OPS, "%p: moving %s to front\n", (void *) set, song->name);
+    dbg_printf(DBG_SET_OPS, "%p: moving %s to front\n", (void *) set, song->name);
 
     if (song != set->head)
     {
@@ -440,19 +440,19 @@ int set_find(const struct songset *set, const char *key)
     struct song *cur;
     int cmp;
 
-    dprintf(DBG_SET_OPS, "%p: searching for %s\n", (void *) set, key);
+    dbg_printf(DBG_SET_OPS, "%p: searching for %s\n", (void *) set, key);
     cur = set->root;
     while (cur)
     {
         cmp = strcmp(key, cur->name);
         if (cmp == 0)
         {
-            dprintf(DBG_SET_OPS, "   (found)\n");
+            dbg_printf(DBG_SET_OPS, "   (found)\n");
             return 1;
         }
         cur = cur->children[cmp > 0];
     }
-    dprintf(DBG_SET_OPS, "   (not found)\n");
+    dbg_printf(DBG_SET_OPS, "   (not found)\n");
     return 0;
 }
 
@@ -462,19 +462,19 @@ struct song *set_get(struct songset *set, const char *key)
     struct song *cur;
     int cmp;
 
-    dprintf(DBG_SET_OPS, "%p: searching for %s\n", (void *) set, key);
+    dbg_printf(DBG_SET_OPS, "%p: searching for %s\n", (void *) set, key);
     cur = set->root;
     while (cur)
     {
         cmp = strcmp(key, cur->name);
         if (cmp == 0)
         {
-            dprintf(DBG_SET_OPS, "   (found)\n");
+            dbg_printf(DBG_SET_OPS, "   (found)\n");
             return cur;
         }
         cur = cur->children[cmp > 0];
     }
-    dprintf(DBG_SET_OPS, "   (not found)\n");
+    dbg_printf(DBG_SET_OPS, "   (not found)\n");
     return NULL;
 }
 
@@ -482,7 +482,7 @@ void set_dispose(struct songset *set)
 {
     struct song *i, *next;
 
-    dprintf(DBG_SET_OPS, "%p: disposing\n", (void *) set);
+    dbg_printf(DBG_SET_OPS, "%p: disposing\n", (void *) set);
 
     if (set->head) set->head->prev->next = NULL;
     i = set->head;
@@ -499,7 +499,7 @@ void set_dispose(struct songset *set)
 
 void set_free(struct songset *set)
 {
-    dprintf(DBG_SET_OPS, "%p: freeing\n", (void *) set);
+    dbg_printf(DBG_SET_OPS, "%p: freeing\n", (void *) set);
     set_dispose(set);
     free(set);
 }
@@ -507,7 +507,7 @@ void set_free(struct songset *set)
 void set_merge(struct songset *set1, const struct songset *set2)
 {
     struct song *i;
-    dprintf(DBG_SET_OPS, "merging %p into %p\n", (const void *) set2, (void *) set1);
+    dbg_printf(DBG_SET_OPS, "merging %p into %p\n", (const void *) set2, (void *) set1);
 
     if (!set2->head) return;
     i = set2->head;
@@ -522,7 +522,7 @@ void set_subtract(struct songset *set1, const struct songset *set2)
 {
     struct song *i;
 
-    dprintf(DBG_SET_OPS, "subtracting %p from %p\n", (const void *) set2, (void *) set1);
+    dbg_printf(DBG_SET_OPS, "subtracting %p from %p\n", (const void *) set2, (void *) set1);
     if (!set2->head) return;
     i = set2->head;
     do
@@ -537,7 +537,7 @@ void set_mask(struct songset *set1, const struct songset *set2)
     struct song *i, *next;
     int more;
 
-    dprintf(DBG_SET_OPS, "masking %p with %p\n", (void *) set1, (const void *) set2);
+    dbg_printf(DBG_SET_OPS, "masking %p with %p\n", (void *) set1, (const void *) set2);
 
     if (!set1) return;
     i = set1->head;

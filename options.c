@@ -1,5 +1,5 @@
 /*
- $Id: options.c,v 1.6 2005/04/25 15:16:31 bruce Exp $
+ $Id$
 
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.
@@ -74,7 +74,7 @@ int options_cmdline(int argc, char * const argv[], struct parameter parms[])
 
     num_parms = 0;
     while (!LAST_PARM(parms[num_parms])) num_parms++;
-    dprintf(DBG_CONFIG_COUNT, "%d config parameters specified\n", num_parms);
+    dbg_printf(DBG_CONFIG_COUNT, "%d config parameters specified\n", num_parms);
 
     /* enough memory for every to have optional args (::) */
     shortopts = (char *) safe_malloc(3 * num_parms + 1);

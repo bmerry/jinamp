@@ -200,7 +200,7 @@ void read_object(const char *file, struct songset *names,
         if (S_ISDIR(buf.st_mode))
         {
             set_insert(done, &cur);
-            dprintf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
+            dbg_printf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
             read_directory(canon, names, done, playlist_handle, exclude_handle);
         }
         else if (S_ISREG(buf.st_mode))
@@ -208,19 +208,19 @@ void read_object(const char *file, struct songset *names,
             if (playlist_handle && regex_test(canon, playlist_handle) == 0)
             {
                 set_insert(done, &cur);
-                dprintf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
+                dbg_printf(DBG_LOAD_DONE, "Added %s to done set\n", canon);
                 read_list(canon, names, done, playlist_handle, exclude_handle);
             }
             else
             {
                 set_insert(names, &cur);
-                dprintf(DBG_LOAD_SHOW, "%p: Added %s\n", (void *) names, canon);
+                dbg_printf(DBG_LOAD_SHOW, "%p: Added %s\n", (void *) names, canon);
             }
         }
         else
             printf("Warning: %s is not a regular file or directory, skipping\n", canon);
     }
     else
-        dprintf(DBG_LOAD_REGEX, "Excluded %s\n", canon);
+        dbg_printf(DBG_LOAD_REGEX, "Excluded %s\n", canon);
     free(canon);
 }

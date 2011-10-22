@@ -30,7 +30,7 @@
 # include <config.h>
 #endif
 
-/* The dprintf function is used for debug output elsewhere. If debug_flags & mask is
+/* The dbg_printf function is used for debug output elsewhere. If debug_flags & mask is
  * non-zero, then the message is printed printf style to stderr. The debug_flags is
  * intended to be set inside a debugger.
  */
@@ -62,6 +62,6 @@ extern unsigned int debug_flags;
 #else
 # define DPRINTF_ATTRIBUTES
 #endif
-void dprintf(unsigned int mask, char *fmt, ...) DPRINTF_ATTRIBUTES;
+void dbg_printf(unsigned int mask, char *fmt, ...) DPRINTF_ATTRIBUTES;
 
 #endif /* JINAMP_DEBUG_H */

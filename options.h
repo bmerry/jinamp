@@ -1,5 +1,5 @@
 /*
- $Id: options.h,v 1.6 2005/04/25 15:16:31 bruce Exp $
+ $Id$
 
  jinamp: a command line music shuffler
  Copyright (C) 2001-2005  Bruce Merry.

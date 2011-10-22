@@ -323,7 +323,7 @@ static void play_all(void)
         {
         case -1: perror("jinamp: fork"); cleanup(); exit(2); break;
         case 0:
-            dprintf(DBG_MISC, "exec'ing %s %s\n", player, cur->name);
+            dbg_printf(DBG_MISC, "exec'ing %s %s\n", player, cur->name);
 #if DEBUG
             close(0);
             close(1);
@@ -393,7 +393,7 @@ static int unpack(const struct command_list_t *cmd, const char ***argv)
     *argv = malloc(cmd->argc * sizeof(char *));
     if (*argv == NULL)
     {
-        dprintf(DBG_CONTROL_ERRORS, "Out of memory in unpack\n");
+        dbg_printf(DBG_CONTROL_ERRORS, "Out of memory in unpack\n");
         return -1;
     }
     for (i = 0; i < cmd->argc; i++)
@@ -404,7 +404,7 @@ static int unpack(const struct command_list_t *cmd, const char ***argv)
             nxt++;
         if (nxt >= cmd->argv + sizeof(cmd->argv)) break;
         (*argv)[i] = cur;
-        dprintf(DBG_CONTROL_DATA, "unpack %d: %s\n", i, cur);
+        dbg_printf(DBG_CONTROL_DATA, "unpack %d: %s\n", i, cur);
         cur = nxt + 1;
     }
     return i;
@@ -444,7 +444,7 @@ static void dispatch_command(const struct command_t *cur)
 {
     struct command_string_t reply;
 
-    dprintf(DBG_CONTROL_DATA, "Got command %d\n", cur->command);
+    dbg_printf(DBG_CONTROL_DATA, "Got command %d\n", cur->command);
     switch (cur->command)
     {
     case COMMAND_WAKE: break; /* used internally by SIGCHLD handler to wake us up */
@@ -659,7 +659,7 @@ static void delay_callback(const char *argument, void *data)
         printf("Delay cannot be negative, using default delay of %d\n", DEFAULT_DELAY);
         delay = DEFAULT_DELAY;
     }
-    dprintf(DBG_CONFIG_INFO, "Using delay: %ld\n", delay);
+    dbg_printf(DBG_CONFIG_INFO, "Using delay: %ld\n", delay);
 }
 
 static void count_callback(const char *argument, void *data)
@@ -686,7 +686,7 @@ static void count_callback(const char *argument, void *data)
         printf("Count cannot be negative, using infinite repeat\n");
         count = -1;
     }
-    dprintf(DBG_CONFIG_INFO, "Using count: %ld\n", count);
+    dbg_printf(DBG_CONFIG_INFO, "Using count: %ld\n", count);
 }
 
 static void repeat_callback(const char *argument, void *data)
@@ -713,7 +713,7 @@ static void repeat_callback(const char *argument, void *data)
         printf("Repeat cannot be negative, using infinite repeat\n");
         repeat = -1;
     }
-    dprintf(DBG_CONFIG_INFO, "Using repeat: %ld\n", repeat);
+    dbg_printf(DBG_CONFIG_INFO, "Using repeat: %ld\n", repeat);
 }
 
 static void no_shuffle_callback(const char *argument, void *data)
