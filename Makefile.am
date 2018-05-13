@@ -15,7 +15,6 @@ if USING_JINAMP_CTL
 jinamp_ctl_SOURCES = jinamp-ctl.c control.c control.h misc.c misc.h
 endif
 dist_man_MANS = jinamp.1 jinamp-ctl.1
-EXTRA_DIST = debian/rules debian/control debian/copyright debian/changelog debian/docs debian/dirs
 
 MAINTAINERCLEANFILES = parse.c parse.h conffile.c
 
@@ -33,3 +32,9 @@ install-exec-hook:
 else
 install-exec-hook:
 endif
+
+# automake insists that there is a README, so rename it for the distribution
+README: README.md
+	cp $< $@
+
+CLEANFILES = README

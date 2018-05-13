@@ -1,3 +1,9 @@
+jinamp 1.0.7
+------------
+* Updates purely to reflect the move to Github
+* Removed the debian/ directory. It hasn't been maintained in about 15 years
+  and is highly unlikely to work with modern Debian.
+
 jinamp 1.0.6
 ------------
 * Rename dprintf to dbg_printf to avoid conflict with the POSIX 2008 function

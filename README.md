@@ -25,7 +25,7 @@ going to end up.
 
 Q: Where can I get Jinamp?
 
-A: http://www.sourceforge.net/projects/jinamp
+A: https://github.com/bmerry/jinamp
 
 Q: How do I install it?
 
@@ -53,18 +53,14 @@ duplicate them here it'll become a headache to keep them in sync.
 
 Q: Are there any bugs?
 
-A: Probably. If you find any, let me know at bmerry@users.sourceforge.net.
-See the man page for any known bugs.
+A: Probably. If you find any, you can file them on Github, but it's been over
+a decade since I did any new development on jinamp so they're unlikely to get
+much attention. See the man page for any known bugs.
 
 Q: How can I contribute?
 
-A: Probably the best way to contribute is simply to tell me whether it's
-useful to you, what bits you like, what annoyed you, what features
-you'd like in later versions etc.
-
-The project is small enough that I don't really need other developers.
-However if you have a patch for a bugfix or a nifty feature you can
-send it to me (bmerry@users.sourceforge.net).
+A: It's been over a decade since I did any active development, so the only way
+new features are likely to appear in jinamp is if you send a pull request.
 
 I'm a terrible manual writer so if you'd like to write an info page,
 update the man page or even just a better README than this one I'd
@@ -72,16 +68,11 @@ appreciate it.
 
 Q: Are there binaries available?
 
-A: Unfortunately not. There used to be Debian binaries, but as I'm no
-longer using Debian I have no way to test binaries. If you are
-interested in creating binary packages for your operating system
-I'll be very happy to put them on the website.
+A: Unfortunately not.
 
------------
 Legal stuff
 -----------
 You may distribute jinamp under the terms of the GNU General Public Licence,
-VERSION 2 ONLY. I may choose to license it under later versions but I'm
-not going to commit myself until I've read them.
+VERSION 2 ONLY.
 
 The text of the GNU GPL can be found in the file COPYING.
